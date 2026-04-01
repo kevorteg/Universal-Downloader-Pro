@@ -1,0 +1,69 @@
+{
+  "name": "universal-downloader",
+  "version": "1.0.0",
+  "description": "Universal Downloader - Descarga videos y audio de cualquier URL",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite --config vite.config.ts & electron --inspect=5858 .",
+    "dev:vite": "vite --config vite.config.ts",
+    "dev:electron": "electron --inspect=5858 .",
+    "build": "vite build && tsc -p tsconfig.node.json && electron-builder",
+    "preview": "vite preview",
+    "build:renderer": "vite build",
+    "build:electron": "tsc -p tsconfig.node.json",
+    "pack": "electron-builder --dir",
+    "dist": "npm run build:renderer && npm run build:electron && electron-builder"
+  },
+  "keywords": [
+    "electron",
+    "downloader",
+    "yt-dlp",
+    "video"
+  ],
+  "author": "Universal Downloader",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "@types/uuid": "^10.0.0",
+    "@types/webtorrent": "^0.110.1",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "electron": "^28.2.0",
+    "electron-builder": "^24.9.1",
+    "electron-vite": "^2.0.0",
+    "postcss": "^8.4.33",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12",
+    "vite-plugin-electron": "^0.28.4",
+    "vite-plugin-electron-renderer": "^0.14.5"
+  },
+  "dependencies": {
+    "lucide-react": "^0.314.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "uuid": "^9.0.0",
+    "webtorrent": "^2.8.5"
+  },
+  "build": {
+    "appId": "com.universaldownloader.app",
+    "productName": "Universal Downloader",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
