@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Search, Download, Loader2, Film, Calendar, Youtube, User } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
+import { Search, Download, Loader2, Film, Calendar, Youtube, User, ChevronDown, ListPlus } from 'lucide-react'
 import { SearchResult } from '../types'
 
 interface SearchTabProps {
@@ -8,40 +8,82 @@ interface SearchTabProps {
 
 export default function SearchTab({ onAddDownload }: SearchTabProps) {
   const [query, setQuery] = useState('')
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [activeTab, setActiveTab] = useState<'video' | 'movie'>('video')
   const [results, setResults] = useState<SearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [searchLimit, setSearchLimit] = useState(12)
+  const suggestionRef = useRef<HTMLDivElement>(null)
 
-  const handleSearch = async (e?: React.FormEvent) => {
+  // Autocomplete logic
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (query.trim().length > 2 && activeTab === 'video') {
+        const data = await window.electronAPI.getSuggestions(query)
+        setSuggestions(data)
+        setShowSuggestions(true)
+      } else {
+        setSuggestions([])
+        setShowSuggestions(false)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [query, activeTab])
+
+  // Click outside to hide suggestions
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (suggestionRef.current && !suggestionRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleSearch = async (e?: React.FormEvent, isLoadMore = false) => {
     e?.preventDefault()
     if (!query.trim()) return
 
-    setIsLoading(true)
-    setError(null)
+    setShowSuggestions(false)
+    if (isLoadMore) {
+        setIsLoadingMore(true)
+    } else {
+        setIsLoading(true)
+        setSearchLimit(12)
+        setError(null)
+    }
+
     try {
       let data: SearchResult[] = []
+      const limit = isLoadMore ? searchLimit + 12 : 12
+      
       if (activeTab === 'video') {
-        data = await window.electronAPI.searchVideos(query)
+        data = await window.electronAPI.searchVideos(query, limit)
       } else {
         data = await window.electronAPI.searchMovies(query)
       }
+
       setResults(data)
+      if (isLoadMore) setSearchLimit(limit)
+      
       if (data.length === 0) setError('No se encontraron resultados.')
     } catch (err) {
       setError('Error al conectar con el servidor de búsqueda.')
     } finally {
       setIsLoading(false)
+      setIsLoadingMore(false)
     }
   }
 
   const handleDownload = async (item: SearchResult) => {
     try {
       if (item.type === 'video') {
-        // Direct video download
         onAddDownload(item.url, 'video', item.title)
       } else {
-        // Scrape magnet for movies
         const magnet = await window.electronAPI.getMovieMagnets(item.url)
         if (magnet) {
           onAddDownload(magnet, 'torrent', item.title)
@@ -57,23 +99,23 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
   return (
     <div className="flex flex-col h-full bg-black/10 overflow-hidden">
       {/* Search Header */}
-      <div className="p-6 bg-gradient-to-b from-fuchsia-950/20 to-transparent flex flex-col gap-4">
+      <div className="p-6 bg-gradient-to-b from-fuchsia-950/20 to-transparent flex flex-col gap-4 relative z-50">
         <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                {activeTab === 'video' ? <Youtube className="text-red-500" /> : <Film className="text-fuchsia-500" />}
+                {activeTab === 'video' ? <Youtube className="text-red-500" size={28} /> : <Film className="text-fuchsia-500" size={28} />}
                 {activeTab === 'video' ? 'Buscador de Videos' : 'Buscador de Películas'}
             </h2>
 
             {/* Tab Selector */}
             <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
                 <button 
-                  onClick={() => { setActiveTab('video'); setResults([]); setError(null); }}
+                  onClick={() => { setActiveTab('video'); setResults([]); setError(null); setQuery(''); }}
                   className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'video' ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
                 >
                     Videos / YT
                 </button>
                 <button 
-                  onClick={() => { setActiveTab('movie'); setResults([]); setError(null); }}
+                  onClick={() => { setActiveTab('movie'); setResults([]); setError(null); setQuery(''); }}
                   className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'movie' ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
                 >
                     Películas / Torrents
@@ -83,31 +125,50 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
 
         <p className="text-sm text-white/50 -mt-2">
           {activeTab === 'video' 
-            ? 'Encuentra videos en YouTube y otras plataformas de streaming.' 
-            : 'Busca películas en servidores premium y redes P2P.'}
+            ? 'Encuentra videos en YouTube con autocompletado y carga infinita.' 
+            : 'Busca películas en servidores premium (PelisPanda y más).'}
         </p>
 
-        <form onSubmit={handleSearch} className="relative mt-2">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" size={18} />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={activeTab === 'video' ? "Busca videos, canales, música..." : "Escribe el nombre de la película..."}
-            className="w-full bg-white/5 border border-white/10 rounded-full py-3.5 pl-12 pr-32 text-white text-sm focus:outline-none focus:border-fuchsia-500/50 focus:ring-1 focus:ring-fuchsia-500/30 transition-all placeholder:text-white/20"
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !query.trim()}
-            className="absolute right-2 top-1.5 bottom-1.5 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-50 disabled:hover:bg-fuchsia-600 text-white rounded-full px-6 text-sm font-semibold transition-all flex items-center gap-2"
-          >
-            {isLoading ? <Loader2 size={16} className="animate-spin" /> : 'Buscar'}
-          </button>
-        </form>
+        <div className="relative mt-2" ref={suggestionRef}>
+          <form onSubmit={(e) => handleSearch(e)} className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" size={18} />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => query.trim().length > 2 && setShowSuggestions(true)}
+              placeholder={activeTab === 'video' ? "Explora videos, música, canales..." : "Escribe el nombre de la película..."}
+              className="w-full bg-white/5 border border-white/10 rounded-full py-3.5 pl-12 pr-32 text-white text-sm focus:outline-none focus:border-fuchsia-500/50 focus:ring-1 focus:ring-fuchsia-500/30 transition-all placeholder:text-white/20"
+            />
+            <button
+              type="submit"
+              disabled={isLoading || !query.trim()}
+              className="absolute right-2 top-1.5 bottom-1.5 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-50 disabled:hover:bg-fuchsia-600 text-white rounded-full px-6 text-sm font-semibold transition-all flex items-center gap-2"
+            >
+              {isLoading ? <Loader2 size={16} className="animate-spin" /> : 'Buscar'}
+            </button>
+          </form>
+
+          {/* Autocomplete Dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                {suggestions.map((s, idx) => (
+                    <button
+                        key={idx}
+                        onClick={() => { setQuery(s); handleSearch(undefined); }}
+                        className="w-full text-left px-5 py-3 text-sm text-white/70 hover:bg-fuchsia-600 hover:text-white transition-colors flex items-center gap-3 border-b border-white/5 last:border-0"
+                    >
+                        <Search size={14} className="opacity-40" />
+                        {s}
+                    </button>
+                ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Results Grid */}
-      <div className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar relative">
         {isLoading && results.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-white/40 gap-4">
             <Loader2 size={48} className="animate-spin text-fuchsia-500/50" />
@@ -132,15 +193,15 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
           {results.map((item, idx) => (
             <div 
               key={idx}
-              className="group bg-white/5 border border-white/5 rounded-xl overflow-hidden hover:border-fuchsia-500/30 transition-all hover:bg-white/10 flex flex-col"
+              className="group bg-white/5 border border-white/5 rounded-xl overflow-hidden hover:border-fuchsia-500/30 transition-all hover:bg-white/10 flex flex-col animate-in fade-in zoom-in duration-300"
             >
-              {/* Thumbnail Container */}
               <div className={`${activeTab === 'video' ? 'aspect-video' : 'aspect-[2/3]'} relative overflow-hidden bg-black/40`}>
                 {item.thumbnail ? (
                   <img 
                     src={item.thumbnail} 
                     alt={item.title} 
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                    onError={(e) => (e.currentTarget.src = 'https://placehold.co/400x600/1a1a1a/fuchsia?text=Sin+Imagen')}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-white/5">
@@ -148,7 +209,6 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
                   </div>
                 )}
                 
-                {/* Duration Overlay for Videos */}
                 {activeTab === 'video' && item.duration && (
                     <div className="absolute bottom-2 right-2 bg-black/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-white border border-white/5">
                         {item.duration}
@@ -166,7 +226,6 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
                 </div>
               </div>
 
-              {/* Info Container */}
               <div className="p-3 flex-1 flex flex-col gap-1">
                 <h3 className="text-sm font-semibold text-white/90 line-clamp-2 leading-tight min-h-[2.5rem]">
                   {item.title}
@@ -192,6 +251,29 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
             </div>
           ))}
         </div>
+
+        {/* Load More Button */}
+        {results.length > 0 && activeTab === 'video' && (
+            <div className="mt-8 flex justify-center">
+                <button
+                    onClick={() => handleSearch(undefined, true)}
+                    disabled={isLoadingMore}
+                    className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white px-8 py-3 rounded-full border border-white/10 transition-all font-semibold text-sm active:scale-95 disabled:opacity-50"
+                >
+                    {isLoadingMore ? (
+                        <>
+                            <Loader2 size={16} className="animate-spin" />
+                            Cargando más...
+                        </>
+                    ) : (
+                        <>
+                            <ListPlus size={16} />
+                            Ver más resultados
+                        </>
+                    )}
+                </button>
+            </div>
+        )}
       </div>
     </div>
   )

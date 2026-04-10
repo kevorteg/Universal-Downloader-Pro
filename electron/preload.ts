@@ -42,7 +42,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearHistory: (items: any[]) => ipcRenderer.invoke('history:clearCompleted', items),
 
   // Search (Premium Search Engine)
-  searchVideos: (query: string) => ipcRenderer.invoke('video:searchVideos', query),
+  getSuggestions: (query: string) => ipcRenderer.invoke('video:getSuggestions', query),
+  searchVideos: (query: string, limit?: number) => ipcRenderer.invoke('video:searchVideos', query, limit),
   searchMovies: (query: string) => ipcRenderer.invoke('video:searchMovies', query),
   getMovieMagnets: (url: string) => ipcRenderer.invoke('video:getMovieMagnets', url),
 

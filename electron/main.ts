@@ -399,12 +399,12 @@ ipcMain.handle('video:getFormats', async (event, url: string) => {
     })
   })
 })
-async function performSearch(query: string) {
-  console.log(`[SEARCH] Query: ${query}`);
+async function performSearch(query: string, limit: number = 12) {
+  console.log(`[SEARCH] Query: ${query} (limit: ${limit})`);
   return new Promise<any[]>((resolve) => {
     // Avoid shell:true to prevent argument parsing issues with spaces
     // yt-dlp arguments should be separate
-    const args = ['-J', '--no-playlist', '--flat-playlist', `ytsearch12:${query}`]
+    const args = ['-J', '--no-playlist', '--flat-playlist', `ytsearch${limit}:${query}`]
     const proc = spawn(YT_DLP_EXE, args)
     
     let output = ''
@@ -442,15 +442,49 @@ async function performSearch(query: string) {
   })
 }
 
-ipcMain.handle('video:searchVideos', async (_event, query: string) => {
-  return await performSearch(query);
+ipcMain.handle('video:searchVideos', async (_event, query: string, limit?: number) => {
+  return await performSearch(query, limit || 12);
 })
 
 ipcMain.handle('video:searchMovies', async (_event, query: string) => {
-  // Use PelisPanda scraper for movies
-  const results = await ipcMain.handle('pelis:search', _event, query) as any[];
-  return results.map(r => ({ ...r, type: r.url.includes('pelispanda') ? 'movie' : 'video' }));
+  // Call PelisPanda search directly (extracted logic)
+  const results = await fetchPelisPandaResults(query);
+  return results.map(r => ({ ...r, type: 'movie' }));
 })
+
+ipcMain.handle('video:getSuggestions', async (_event, query: string) => {
+  try {
+    const response = await fetch(`https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${encodeURIComponent(query)}`);
+    const data = await response.json();
+    return data[1] || []; // Index 1 has the array of strings
+  } catch (e) {
+    return [];
+  }
+})
+
+async function fetchPelisPandaResults(query: string) {
+  try {
+    const searchUrl = `https://pelispanda.org/wp-json/wpreact/v1/search?query=${encodeURIComponent(query)}&posts_per_page=36&page=1`
+    const response = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': `https://pelispanda.org/search/?query=${encodeURIComponent(query)}`,
+        'Accept': 'application/json'
+      }
+    })
+    const data = await response.json()
+    if (!data.results || !Array.isArray(data.results)) return []
+    return data.results.map((item: any) => ({
+      url: `https://pelispanda.org/${item.type || 'pelicula'}/${item.slug}`,
+      thumbnail: item.featured || item.background_image,
+      title: item.title,
+      year: item.year
+    }))
+  } catch (error) {
+    console.error('Search error:', error)
+    return []
+  }
+}
 
 ipcMain.handle('video:getMovieMagnets', async (_event, url: string) => {
   if (url.startsWith('magnet:') || url.includes('youtube.com') || url.includes('youtu.be')) {
@@ -604,118 +638,134 @@ ipcMain.handle('download:start', async (event, options: {
   const templateName = audioOnly ? '%(title).100s [%(id)s].mp3' : '%(title).100s [%(id)s].%(ext)s';
   const outputTemplate = join(finalOutputDir, templateName);
 
-  // Construcción de argumentos con COMILLAS MANUALES para evitar fallos de shell en Windows
-  const args: string[] = [
-    `"${url}"`,
-    '--newline',
-    '--no-colors',
-    '--no-playlist',
-    '--restrict-filenames',
-    '--windows-filenames',
-    '--no-part',           // evita archivos .part y errores de escritura parcial
-    '--no-mtime',          // no mantiene la fecha de modificación original
-    '-o', `"${outputTemplate}"`,
-    '--merge-output-format', 'mp4',
-    '--prefer-ffmpeg',
-    '--user-agent', '"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"',
-    '--geo-bypass'
-  ];
+  const availableBrowsers = [cookiesBrowser || 'firefox', 'chrome', 'edge', 'brave'];
+  let currentBrowserIndex = 0;
 
-  if (useCookies) {
-    args.push('--cookies-from-browser', cookiesBrowser || 'chrome');
-  }
-
-  if (FFMPEG_LOCATION) {
-    args.push('--ffmpeg-location', `"${FFMPEG_LOCATION}"`);
-  }
-
-  if (audioOnly) {
-    args.push('-f', 'ba/best', '-x', '--audio-format', 'mp3', '--audio-quality', '0');
-  } else {
-    // Si hay un formatId, intentamos ese primero y caemos a best si falla
-    // Si no hay formatId, usamos el best por defecto
-    const safeFormat = formatId 
-      ? `${formatId}/bestvideo+bestaudio/best` 
-      : 'bestvideo+bestaudio/best';
-    args.push('-f', safeFormat);
-  }
-
-  console.log('[SISTEMA] Ejecutando:', YT_DLP_EXE, args.join(' '));
-
-  const proc = spawn(YT_DLP_EXE, args, {
-    shell: true,
-    cwd: finalOutputDir,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsVerbatimArguments: true // Crucial para que las comillas manuales funcionen
-  });
-
-  activeProcesses.set(id, proc);
-  let lastErrorLine = '';
-
-  const handleData = (chunk: Buffer) => {
-    const lines = chunk.toString().split('\n');
-    lines.forEach(line => {
-      const trimmed = line.trim();
-      if (trimmed) {
-        const parsed = parseProgress(trimmed);
-        event.sender.send('download:progress', {
-          id,
-          line: trimmed,
-          ...parsed,
-          status: 'downloading'
-        });
-      }
-    });
-  };
-
-  const handleErrorData = (chunk: Buffer) => {
-    const line = chunk.toString().trim();
-    if (line) {
-      lastErrorLine = line; // Guardar el último error para reporte
-      handleData(chunk);
-    }
-  };
-
-  proc.stdout.on('data', handleData);
-  proc.stderr.on('data', handleErrorData);
-
-  proc.on('close', (code) => {
-    activeProcesses.delete(id)
-    const success = code === 0 || code === null
+  const startProcess = (browserIndex: number) => {
+    const browser = availableBrowsers[browserIndex];
     
-    // Si falló, intentar extraer un mensaje de error legible
-    let errorMessage = '';
-    if (!success) {
-      if (lastErrorLine.includes('fnd')) errorMessage = 'FFmpeg no encontrado'
-      else if (lastErrorLine.includes('cookies')) errorMessage = 'Acceso denegado a cookies (cierra el navegador)'
-      else if (lastErrorLine.includes('DPAPI')) errorMessage = 'Error DPAPI (Cierra el navegador y reintenta)'
-      else if (lastErrorLine.includes('HTTP Error 403')) errorMessage = '403 Forbidden (Prueba activar cookies o cerrar el navegador)'
-      else errorMessage = lastErrorLine.length > 50 ? lastErrorLine.substring(0, 50) + '...' : lastErrorLine;
+    // Construcción de argumentos con COMILLAS MANUALES para evitar fallos de shell en Windows
+    const args: string[] = [
+      `"${url}"`,
+      '--newline',
+      '--no-colors',
+      '--no-playlist',
+      '--restrict-filenames',
+      '--windows-filenames',
+      '--no-part',           // evita archivos .part y errores de escritura parcial
+      '--no-mtime',          // no mantiene la fecha de modificación original
+      '-o', `"${outputTemplate}"`,
+      '--merge-output-format', 'mp4',
+      '--prefer-ffmpeg',
+      '--user-agent', '"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"',
+      '--geo-bypass'
+    ];
+
+    if (useCookies) {
+      args.push('--cookies-from-browser', browser);
     }
 
-    event.sender.send('download:completed', { 
-      id, 
-      success, 
-      code, 
-      error: success ? undefined : (errorMessage || `Error ${code}`)
+    if (FFMPEG_LOCATION) {
+      args.push('--ffmpeg-location', `"${FFMPEG_LOCATION}"`);
+    }
+
+    if (audioOnly) {
+      args.push('-f', 'ba/best', '-x', '--audio-format', 'mp3', '--audio-quality', '0');
+    } else {
+      const safeFormat = formatId 
+        ? `${formatId}/bestvideo+bestaudio/best` 
+        : 'bestvideo+bestaudio/best';
+      args.push('-f', safeFormat);
+    }
+
+    console.log(`[SISTEMA] Intentando descarga (${browser}):`, YT_DLP_EXE, args.join(' '));
+
+    const proc = spawn(YT_DLP_EXE, args, {
+      shell: true,
+      cwd: finalOutputDir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsVerbatimArguments: true
+    });
+
+    activeProcesses.set(id, proc);
+    let lastErrorLine = '';
+
+    const handleData = (chunk: Buffer) => {
+      const lines = chunk.toString().split('\n');
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed) {
+          const parsed = parseProgress(trimmed);
+          event.sender.send('download:progress', {
+            id,
+            line: trimmed,
+            ...parsed,
+            status: 'downloading'
+          });
+        }
+      });
+    };
+
+    const handleErrorData = (chunk: Buffer) => {
+      const line = chunk.toString().trim();
+      if (line) {
+        lastErrorLine = line;
+        handleData(chunk);
+      }
+    };
+
+    proc.stdout.on('data', handleData);
+    proc.stderr.on('data', handleErrorData);
+
+    proc.on('close', (code) => {
+      activeProcesses.delete(id)
+      const success = code === 0 || code === null
+
+      if (!success && browserIndex < availableBrowsers.length - 1) {
+        console.warn(`[AVISO] Falló con ${browser}, intentando con ${availableBrowsers[browserIndex + 1]}...`);
+        startProcess(browserIndex + 1);
+        return;
+      }
+
+      // Si falló definitivamente, intentar extraer un mensaje de error legible
+      let errorMessage = '';
+      if (!success) {
+        if (lastErrorLine.includes('fnd')) errorMessage = 'FFmpeg no encontrado'
+        else if (lastErrorLine.includes('cookies')) errorMessage = 'Acceso denegado a cookies (cierra el navegador)'
+        else if (lastErrorLine.includes('DPAPI')) errorMessage = 'Error DPAPI (Cierra el navegador y reintenta)'
+        else if (lastErrorLine.includes('HTTP Error 403')) errorMessage = '403 Forbidden (Prueba activar cookies o cerrar el navegador)'
+        else errorMessage = lastErrorLine.length > 50 ? lastErrorLine.substring(0, 50) + '...' : lastErrorLine;
+      }
+
+      event.sender.send('download:completed', { 
+        id, 
+        success, 
+        code, 
+        error: success ? undefined : (errorMessage || `Error ${code}`)
+      })
+
+      if (Notification.isSupported()) {
+        const n = new Notification({
+          title: success ? '✅ Descarga completada' : '❌ Error en descarga',
+          body: success
+            ? 'Tu descarga ha finalizado correctamente.'
+            : (errorMessage || `La descarga falló con código ${code}.`)
+        })
+        n.show()
+      }
     })
 
-    if (Notification.isSupported()) {
-      const n = new Notification({
-        title: success ? '✅ Descarga completada' : '❌ Error en descarga',
-        body: success
-          ? 'Tu descarga ha finalizado correctamente.'
-          : (errorMessage || `La descarga falló con código ${code}.`)
-      })
-      n.show()
-    }
-  })
+    proc.on('error', (err) => {
+      activeProcesses.delete(id)
+      if (browserIndex < availableBrowsers.length - 1) {
+          startProcess(browserIndex + 1);
+      } else {
+          event.sender.send('download:completed', { id, success: false, error: err.message })
+      }
+    })
+  };
 
-  proc.on('error', (err) => {
-    activeProcesses.delete(id)
-    event.sender.send('download:completed', { id, success: false, error: err.message })
-  })
-
+  startProcess(0);
   return { ok: true, outputDir: finalOutputDir }
 })
 
