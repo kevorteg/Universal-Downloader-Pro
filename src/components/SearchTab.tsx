@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Search, Download, Loader2, Film, Calendar, Youtube, User, ChevronDown, ListPlus } from 'lucide-react'
+import { Search, Download, Loader2, Film, Calendar, Youtube, User, ChevronDown, ListPlus, Music } from 'lucide-react'
 import { SearchResult } from '../types'
 
 interface SearchTabProps {
@@ -10,7 +10,7 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [activeTab, setActiveTab] = useState<'video' | 'movie'>('video')
+  const [activeTab, setActiveTab] = useState<'video' | 'audio' | 'movie'>('video')
   const [results, setResults] = useState<SearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -63,6 +63,9 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
       
       if (activeTab === 'video') {
         data = await window.electronAPI.searchVideos(query, limit)
+      } else if (activeTab === 'audio') {
+        data = await window.electronAPI.searchMusic(query, limit)
+        data = data.map(r => ({ ...r, type: 'audio' }))
       } else {
         data = await window.electronAPI.searchMovies(query)
       }
@@ -83,16 +86,15 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
     try {
       if (item.type === 'video') {
         onAddDownload(item.url, 'video', item.title)
+      } else if (item.type === 'audio') {
+        onAddDownload(item.url, 'audio', item.title)
       } else {
-        const magnet = await window.electronAPI.getMovieMagnets(item.url)
-        if (magnet) {
-          onAddDownload(magnet, 'torrent', item.title)
-        } else {
-          alert('No se encontró enlace de descarga para este título.')
-        }
+        // En lugar de resolver el magnet aquí, lo enviamos como torrent 
+        // y dejamos que el backend lo resuelva automáticamente.
+        onAddDownload(item.url, 'torrent', item.title)
       }
     } catch (err) {
-      console.error('Error getting magnet:', err)
+      console.error('Error in search download flow:', err)
     }
   }
 
@@ -102,30 +104,43 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
       <div className="p-6 bg-gradient-to-b from-fuchsia-950/20 to-transparent flex flex-col gap-4 relative z-50">
         <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                {activeTab === 'video' ? <Youtube className="text-red-500" size={28} /> : <Film className="text-fuchsia-500" size={28} />}
-                {activeTab === 'video' ? 'Buscador de Videos' : 'Buscador de Películas'}
+                {activeTab === 'video' ? <Youtube className="text-red-500" size={28} /> : activeTab === 'audio' ? <Music className="text-emerald-500" size={28} /> : <Film className="text-fuchsia-500" size={28} />}
+                {activeTab === 'video' ? 'Buscador de Videos' : activeTab === 'audio' ? 'Buscador de Música' : 'Buscador de Películas'}
             </h2>
 
             {/* Tab Selector */}
             <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
-                <button 
-                  onClick={() => { setActiveTab('video'); setResults([]); setError(null); setQuery(''); }}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'video' ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
-                >
-                    Videos / YT
-                </button>
-                <button 
-                  onClick={() => { setActiveTab('movie'); setResults([]); setError(null); setQuery(''); }}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'movie' ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
-                >
-                    Películas / Torrents
-                </button>
+              <button
+                onClick={() => { setActiveTab('video'); setResults([]); setError(null); setQuery(''); }}
+                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg transition-all ${activeTab === 'video' ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
+              >
+                <Youtube size={14} />
+                <span className="text-xs font-semibold">Vídeos</span>
+              </button>
+              
+              <button
+                onClick={() => { setActiveTab('audio'); setResults([]); setError(null); setQuery(''); }}
+                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg transition-all ${activeTab === 'audio' ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
+              >
+                <Music size={14} />
+                <span className="text-xs font-semibold">Música</span>
+              </button>
+
+              <button
+                onClick={() => { setActiveTab('movie'); setResults([]); setError(null); setQuery(''); }}
+                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg transition-all ${activeTab === 'movie' ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
+              >
+                <Film size={14} />
+                <span className="text-xs font-semibold">Películas</span>
+              </button>
             </div>
         </div>
 
         <p className="text-sm text-white/50 -mt-2">
           {activeTab === 'video' 
             ? 'Encuentra videos en YouTube con autocompletado y carga infinita.' 
+            : activeTab === 'audio'
+            ? 'Busca música y descarga en alta calidad.'
             : 'Busca películas en servidores premium (PelisPanda y más).'}
         </p>
 

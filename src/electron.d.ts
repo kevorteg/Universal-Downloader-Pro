@@ -11,6 +11,10 @@ export interface DownloadProgressData {
   title?: string | null
   infoHash?: string
   peers?: number
+  seeds?: number
+  uploadSpeed?: number
+  ratio?: number
+  isPaused?: boolean
   error?: boolean
 }
 
@@ -65,8 +69,13 @@ declare global {
       clearHistory: (items: any[]) => Promise<any[]>
       pauseDownload: (id: string) => Promise<{ ok: boolean; error?: string }>
       resumeDownload: (id: string) => Promise<{ ok: boolean; error?: string }>
+      getSuggestions: (query: string) => Promise<string[]>
+      searchVideos: (query: string, limit?: number) => Promise<any[]>
+      searchMusic: (query: string, limit?: number) => Promise<any[]>
       searchMovies: (query: string) => Promise<any[]>
       getMovieMagnets: (url: string) => Promise<string | null>
+      resolveTorrent: (url: string) => Promise<{ success: boolean, data?: any, error?: string, detail?: string }>
+      downloadTorrent: (options: any) => Promise<{ success: boolean, data?: any, error?: string, detail?: string }>
       onDownloadProgress: (callback: (data: DownloadProgressData) => void) => () => void
       onDownloadCompleted: (callback: (data: DownloadCompletedData) => void) => () => void
     }

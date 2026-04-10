@@ -68,19 +68,17 @@ export function isValidUrl(url: string): boolean {
 export function cleanTorrentName(name: string): string {
   if (!name) return 'Torrent'
   
-  // Clean dots, underscores, dashes
-  let clean = name.replace(/[._-]/g, ' ')
-    // Remove technical metadata
-    .replace(/\b(WEB-DL|WEBRip|HDRip|BluRay|BRRip|DVDRip|H264|x264|x265|HEVC|1080h?p|720h?p|480h?p|576p|Dual-Lat|Dual|Multi|Sub|AAC|DTS|AC3|REMUX|UNCUT|Repack|RIP|Latino|Castellano|KORSUB|WEB|DL|DVDRip|BDRip|XviD|MP3|FLAC|ALAC|WAV|320kbps|Quality|Size|Complete|S\d+E\d+|Season\s*\d+|Pack|Collection|S\d+|WEB[ \-]DL)\b/gi, '')
-    // Remove years like [2024] or (2024) or just 2024
-    .replace(/[\[\(]?\d{4}[\]\)]?/g, '')
-    // Collapse spaces
+  let clean = name
+    .replace(/[._-]/g, ' ')
+    .replace(/\b(WEB-DL|WEBRip|HDRip|BluRay|BRRip|DVDRip|H264|x264|x265|HEVC|1080h?p|720h?p|480h?p|576p|Dual-Lat|Dual|Multi|Sub|AAC|DTS|AC3|REMUX|UNCUT|Repack|RIP|Latino|Castellano|KORSUB|WEB|DL|DVDRip|BDRip|XviD|MP3|FLAC|ALAC|WAV|320kbps|Quality|Size|Complete|S\d+E\d+|Season\s*\d+|Pack|Collection|S\d+|WEB[ \-]DL|CAMRip|TS|TELESYNC|VODRip|TVRip|PDTV|DSR|DTH|SATRip|DVB|Brip|BRip|H265|AVC|DD5\.1|DD\+5\.1|Atmos|TrueHD|DTS-HD|MA|XVID|2160p|4K|UltraHD|UHD)\b/gi, '')
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/\([^\)]*\)/g, '')
+    .replace(/\b(19|20)\d{2}\b/g, '')
     .replace(/\s+/g, ' ')
     .trim()
 
-  // Max 90 characters
   if (clean.length > 90) {
-    clean = clean.substring(0, 90).trim() + '...'
+    clean = clean.substring(0, 87).trim() + '...'
   }
   
   return clean || 'Torrent'

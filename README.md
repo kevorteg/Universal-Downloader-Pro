@@ -13,7 +13,7 @@ Universal Downloader Pro is a high-performance desktop application designed for 
 
 | Category               | Description                                                                 |
 |-----------------------|-----------------------------------------------------------------------------|
-| **Broad Support**     | Native support for YouTube, VK, PornHub, X (Twitter), and 1000+ other sites via yt-dlp integration. |
+| **Broad Support**     | Native support for YouTube, VK, (Twitter), and 1000+ other sites via yt-dlp integration. |
 | **P2P Capability**    | Built-in WebTorrent client for magnet link and .torrent file management and downloading. |
 | **Advanced Merging**  | Automated high-definition video and audio stream merging using FFmpeg.       |
 | **OS Optimization**   | Specifically tuned for Windows environment, including DPAPI handling and path length management. |

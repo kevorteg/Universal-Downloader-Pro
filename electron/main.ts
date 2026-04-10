@@ -15,6 +15,7 @@ import { spawn, ChildProcess } from 'child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs'
 import { readFile, writeFile, unlink } from 'fs/promises'
 import { homedir } from 'os'
+import { registerTorrentHandlers } from './ipc-handlers'
 
 const DANGEROUS_EXTENSIONS = ['.exe', '.scr', '.msi', '.bat', '.cmd', '.vbs', '.js', '.jse', '.wsf', '.wsh']
 
@@ -32,19 +33,23 @@ function checkTorrentSafety(torrent: any): { safe: boolean, reason?: string } {
 function cleanTorrentName(name: string): string {
   if (!name) return 'Torrent'
   
-  // Clean dots, underscores, dashes
-  let clean = name.replace(/[._-]/g, ' ')
-    // Remove technical metadata
-    .replace(/\b(WEB-DL|WEBRip|HDRip|BluRay|BRRip|DVDRip|H264|x264|x265|HEVC|1080h?p|720h?p|480h?p|576p|Dual-Lat|Dual|Multi|Sub|AAC|DTS|AC3|REMUX|UNCUT|Repack|RIP|Latino|Castellano|KORSUB|WEB|DL|DVDRip|BDRip|XviD|MP3|FLAC|ALAC|WAV|320kbps|Quality|Size|Complete|S\d+E\d+|Season\s*\d+|Pack|Collection|S\d+|WEB[ \-]DL)\b/gi, '')
-    // Remove years like [2024] or (2024) or just 2024
-    .replace(/[\[\(]?\d{4}[\]\)]?/g, '')
+  let clean = name
+    // Replace dots, underscores, dashes with spaces
+    .replace(/[._-]/g, ' ')
+    // Remove technical metadata / scene tags
+    .replace(/\b(WEB-DL|WEBRip|HDRip|BluRay|BRRip|DVDRip|H264|x264|x265|HEVC|1080h?p|720h?p|480h?p|576p|Dual-Lat|Dual|Multi|Sub|AAC|DTS|AC3|REMUX|UNCUT|Repack|RIP|Latino|Castellano|KORSUB|WEB|DL|DVDRip|BDRip|XviD|MP3|FLAC|ALAC|WAV|320kbps|Quality|Size|Complete|S\d+E\d+|Season\s*\d+|Pack|Collection|S\d+|WEB[ \-]DL|CAMRip|TS|TELESYNC|VODRip|TVRip|PDTV|DSR|DTH|SATRip|DVB|Brip|BRip|H265|AVC|DD5\.1|DD\+5\.1|Atmos|TrueHD|DTS-HD|MA|XVID|2160p|4K|UltraHD|UHD)\b/gi, '')
+    // Remove brackets and parentheses contents if they match common patterns
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/\([^\)]*\)/g, '')
+    // Remove years like 2024
+    .replace(/\b(19|20)\d{2}\b/g, '')
     // Collapse spaces
     .replace(/\s+/g, ' ')
     .trim()
 
   // Max 90 characters
   if (clean.length > 90) {
-    clean = clean.substring(0, 90).trim() + '...'
+    clean = clean.substring(0, 87).trim() + '...'
   }
   
   return clean || 'Torrent'
@@ -60,16 +65,6 @@ function formatETA(ms: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-const PUBLIC_TRACKERS = [
-  'udp://tracker.opentrackr.org:1337/announce',
-  'udp://9.rarbg.com:2810/announce',
-  'udp://tracker.openbittorrent.com:6969/announce',
-  'udp://exodus.desync.com:6969/announce',
-  'udp://www.torrent.eu.org:451/announce',
-  'udp://tracker.tiny-vps.com:6969/announce',
-  'udp://open.stealth.si:80/announce',
-  'udp://tracker.moeking.me:6969/announce'
-]
 
 // Dynamic import of webtorrent handled below
 
@@ -79,7 +74,6 @@ let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 const activeProcesses = new Map<string, ChildProcess>()
 const activeTorrents = new Map<string, any>()
-let torrentClient: any = null
 const HISTORY_FILE = join(app.getPath('userData'), 'downloads.json')
 
 // ─────────────────────────────────────────
@@ -184,6 +178,9 @@ function createWindow() {
   } else {
     mainWindow.loadFile(join(__dirname, '../dist/index.html'))
   }
+
+  // Activar sistema de torrents modular
+  registerTorrentHandlers(mainWindow, activeTorrents);
 
   // Activar sistema espiritual con delay
   setTimeout(showDailyVerse, 5000);
@@ -443,10 +440,16 @@ ipcMain.handle('video:searchVideos', async (_event, query: string, limit?: numbe
   return await performSearch(query, limit || 12);
 })
 
+ipcMain.handle('video:searchMusic', async (_event, query: string, limit?: number) => {
+  // Optimizamos la búsqueda para música añadiendo palabras clave
+  const musicQuery = `${query} official audio`;
+  return await performSearch(musicQuery, limit || 12);
+})
+
 // Unified WebTorrent error listener
 function setupTorrentClient(client: any) {
   client.on('error', (err: any) => {
-    console.error('[TORRENT CLIENT ERROR]', err);
+    console.error('[TORRENT CLIENT GLOBAL ERROR]', err);
   });
 }
 
@@ -490,12 +493,6 @@ async function fetchPelisPandaResults(query: string) {
   }
 }
 
-ipcMain.handle('video:getMovieMagnets', async (_event, url: string) => {
-  if (url.startsWith('magnet:') || url.includes('youtube.com') || url.includes('youtu.be')) {
-    return url;
-  }
-  return await getPelisMagnet(url);
-})
 
 ipcMain.handle('download:start', async (event, options: {
   id: string
@@ -516,138 +513,11 @@ ipcMain.handle('download:start', async (event, options: {
     mkdirSync(finalOutputDir, { recursive: true });
   }
 
-  // --- WEBTORRENT IMPLEMENTATION ---
+  // --- WEBTORRENT IMPLEMENTATION (DELEGATED) ---
   if (isTorrent) {
-    try {
-      const userTrackers = options.customTrackers || []
-      const combinedTrackers = [...new Set([...PUBLIC_TRACKERS, ...userTrackers])]
-
-      if (!torrentClient) {
-        // Dynamic import logic that handles both .default and direct export
-        const mod = await import('webtorrent');
-        const WebTorrentClass = mod.default || mod;
-        torrentClient = new WebTorrentClass({
-          maxConns: highSpeedMode ? 200 : 100,
-          dht: true
-        });
-        setupTorrentClient(torrentClient);
-      }
-
-      // PREVENCIÓN DE DUPLICADOS: Verificar si el torrent ya existe en el cliente
-      const existing = torrentClient.get(url);
-      if (existing) {
-        throw new Error('Este torrent ya se está descargando.');
-      }
-      
-      const t = torrentClient.add(url, { 
-        path: finalOutputDir,
-        announce: combinedTrackers
-      }, (torrent: any) => {
-        // --- FASE 2: METADATOS RECIBIDOS ---
-        torrent.gotMetadata = true; // Flag para diferenciar errores
-
-        // SEGURIDAD: Verificar archivos antes de descargar
-        const safety = checkTorrentSafety(torrent)
-        if (!safety.safe) {
-          event.sender.send('download:completed', {
-            id,
-            success: false,
-            error: safety.reason
-          })
-          torrent.destroy()
-          return
-        }
-
-        activeTorrents.set(id, torrent)
-        let lastReport = Date.now()
-        
-        const cleanName = cleanTorrentName(torrent.name)
-        
-        // Update info with real metadata
-        event.sender.send('download:progress', {
-          id,
-          line: `[SISTEMA] Metadatos recibidos. Iniciando: ${cleanName}`,
-          status: 'downloading',
-          filename: torrent.name,
-          title: cleanName,
-          totalSize: torrent.length ? `${(torrent.length / (1024 * 1024)).toFixed(2)} MB` : 'Desconocido'
-        })
-
-        torrent.on('download', () => {
-          const now = Date.now()
-          if (now - lastReport > 800) {
-            lastReport = now
-            event.sender.send('download:progress', {
-              id,
-              line: `[TORRENT] Pares: ${torrent.numPeers} | Bajada: ${(torrent.downloadSpeed / (1024 * 1024)).toFixed(2)} MB/s`,
-              status: 'downloading',
-              percent: +(torrent.progress * 100).toFixed(2),
-              speed: `${(torrent.downloadSpeed / 1024 / 1024).toFixed(2)} MB/s`,
-              eta: formatETA(torrent.timeRemaining),
-              infoHash: torrent.infoHash,
-              peers: torrent.numPeers,
-              seeds: torrent.numSeeds || 0,
-              downloadSpeed: torrent.downloadSpeed,
-              uploadSpeed: torrent.uploadSpeed,
-              totalDownloaded: torrent.downloaded,
-              totalUploaded: torrent.uploaded,
-              ratio: torrent.ratio,
-              title: cleanName,
-              filename: torrent.name
-            })
-          }
-        })
-
-        torrent.on('error', (err: any) => {
-          console.error(`[TORRENT ERROR] ID: ${id}`, err);
-          event.sender.send('download:completed', { 
-            id, 
-            success: false, 
-            error: `Error de red p2p: ${err.message || 'Fallo en torrent'}` 
-          });
-          activeTorrents.delete(id);
-        });
-
-        torrent.on('done', () => {
-          event.sender.send('download:completed', { id, success: true })
-          if (Notification.isSupported()) {
-            new Notification({ title: '✅ Torrent completado', body: `Se ha descargado ${torrent.name}.` }).show()
-          }
-        })
-
-        // El error ya está manejado fuera para evitar crashes previos al callback
-      })
-
-      // MANEJO DE ERROR INMEDIATO: Evita que el proceso principal explote
-      // si ocurre un error antes de que los metadatos estén listos (ej. duplicados tardíos)
-      t.on('error', (err: any) => {
-        activeTorrents.delete(id)
-        const isMetadataError = !t.gotMetadata;
-        const errMsg = typeof err === 'string' ? err : err.message || 'Error de Torrent'
-        
-        const finalMsg = isMetadataError 
-          ? `Error al obtener metadatos: ${errMsg}` 
-          : `Error en descarga: ${errMsg}`;
-
-        event.sender.send('download:completed', { id, success: false, error: finalMsg })
-        console.error('[WebTorrent Error]', finalMsg)
-      })
-
-      // --- FASE 1: ADICIÓN INMEDIATA ---
-      // Informar a la UI que estamos buscando metadatos
-      event.sender.send('download:progress', {
-        id,
-        line: '[SISTEMA] Conectando a la red P2P...',
-        status: 'downloading',
-        title: 'Verificando metadatos...',
-        totalSize: 'Calculando...'
-      })
-
-      activeTorrents.set(id, t)
-      return { ok: true }
-    } catch (error: any) {
-      return { ok: false, error: error.message }
-    }
+    // Note: The actual initialization is now handled in ipc-handlers via torrent:download
+    // We just return success here as the renderer will handle the call subsequently
+    return { ok: true, outputDir: finalOutputDir }
   }
 
   // --- YT-DLP IMPLEMENTATION ---
@@ -686,7 +556,15 @@ ipcMain.handle('download:start', async (event, options: {
     }
 
     if (audioOnly) {
-      args.push('-f', 'ba/best', '-x', '--audio-format', 'mp3', '--audio-quality', '0');
+      // Optimizamos para MP3 con metadatos y carátula
+      args.push(
+        '-f', 'ba/best', 
+        '-x', 
+        '--audio-format', 'mp3', 
+        '--audio-quality', '0',
+        '--add-metadata',
+        '--embed-thumbnail'
+      );
     } else {
       const safeFormat = formatId 
         ? `${formatId}/bestvideo+bestaudio/best` 
@@ -710,7 +588,7 @@ ipcMain.handle('download:start', async (event, options: {
         const trimmed = line.trim();
         if (trimmed) {
           const parsed = parseProgress(trimmed);
-          event.sender.send('download:progress', {
+          (event as any).sender.send('download:progress', {
             id,
             line: trimmed,
             ...parsed,
@@ -751,7 +629,7 @@ ipcMain.handle('download:start', async (event, options: {
         else errorMessage = lastErrorLine.length > 50 ? lastErrorLine.substring(0, 50) + '...' : lastErrorLine;
       }
 
-      event.sender.send('download:completed', { 
+      (event as any).sender.send('download:completed', { 
         id, 
         success, 
         code, 
@@ -774,7 +652,7 @@ ipcMain.handle('download:start', async (event, options: {
       if (browserIndex < availableBrowsers.length - 1) {
           startProcess(browserIndex + 1);
       } else {
-          event.sender.send('download:completed', { id, success: false, error: err.message })
+          (event as any).sender.send('download:completed', { id, success: false, error: err.message })
       }
     })
   };
@@ -923,11 +801,13 @@ ipcMain.handle('pelis:search', async (_event, query: string) => {
 
 async function getPelisMagnet(url: string) {
   try {
-    const parts = url.split('/')
-    const slug = parts[parts.length - 1] || parts[parts.length - 2]
-    if (!slug) return null
+    const parts = url.split('/').filter(p => !!p);
+    const slug = parts[parts.length - 1];
+    if (!slug) return null;
 
-    const apiUrl = `https://pelispanda.org/wp-json/wpreact/v1/movie/${slug}`
+    console.log(`[SCRAPER] Iniciando búsqueda para: ${slug}`);
+
+    const apiUrl = `https://pelispanda.org/wp-json/wpreact/v1/movie/${slug}`;
     const response = await fetch(apiUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -938,10 +818,26 @@ async function getPelisMagnet(url: string) {
     const movieData = await response.json()
 
     if (!movieData.downloads || !Array.isArray(movieData.downloads) || movieData.downloads.length === 0) {
+      console.log('[SCRAPER] No hay enlaces en API. Intentando scraping directo...');
       const htmlResponse = await fetch(url)
       const html = await htmlResponse.text()
-      const magnetMatch = html.match(/magnet:\?xt=urn:btih:[a-zA-Z0-9%&=._-]+/i)
-      return magnetMatch ? magnetMatch[0] : null
+      
+      // Intentar varios patrones de magnet
+      const patterns = [
+        /magnet:\?xt=urn:btih:[a-zA-Z0-9%&=._-]+/i,
+        /data-magnet="([^"]+)"/,
+        /href="magnet:([^"]+)"/
+      ];
+
+      for (const pattern of patterns) {
+        const match = html.match(pattern);
+        if (match) {
+          const magnet = match[0].startsWith('magnet') ? match[0] : (match[1]?.startsWith('magnet') ? match[1] : `magnet:${match[1]}`);
+          console.log('[SCRAPER] Magnet encontrado en HTML!');
+          return magnet;
+        }
+      }
+      return null
     }
 
     let magnet = movieData.downloads[0].download_link
@@ -949,8 +845,10 @@ async function getPelisMagnet(url: string) {
       const links = magnet.split(' ').filter((l: string) => l.startsWith('magnet:'))
       magnet = links[links.length - 1]
     }
+    console.log('[SCRAPER] Magnet obtenido de API.');
     return magnet
   } catch (error) {
+    console.error('[SCRAPER ERROR]', error);
     return null
   }
 }

@@ -76,6 +76,13 @@ export default function App() {
         }
         if (data.infoHash) updates.infoHash = data.infoHash
         if (data.peers != null) updates.peers = data.peers
+        if (data.seeds != null) updates.seeds = data.seeds
+        if (data.uploadSpeed != null) updates.uploadSpeed = data.uploadSpeed
+        if (data.ratio != null) updates.ratio = data.ratio
+        if (data.isPaused != null) {
+          updates.isPaused = data.isPaused
+          if (data.isPaused) updates.status = 'paused'
+        }
         return { ...d, ...updates }
       }))
     })
@@ -174,29 +181,57 @@ export default function App() {
 
     // 2. Start actual download
     try {
-      const result = await window.electronAPI.startDownload({
-        id: newItem.id,
-        url: cleanedUrl,
-        outputDir,
-        audioOnly,
-        isTorrent,
-        useCookies: settings.useCookies,
-        cookiesBrowser: settings.cookiesBrowser,
-        formatId,
-        customTrackers: settings.customTrackers,
-        highSpeedMode: settings.highSpeedMode
-      });
+      let result: any;
       
-      if (result && !result.ok) {
-        setDownloads(prev => prev.map(d => d.id === newItem.id ? { 
-          ...d, 
-          status: 'error', 
-          error: result.error || 'No se pudo iniciar la descarga' 
-        } : d));
-      } else if (result && result.ok && result.outputDir) {
-        const finalDir: string = result.outputDir;
+      if (isTorrent) {
+        // Usar el nuevo motor robusto para P2P
+        result = await window.electronAPI.downloadTorrent({
+          id: newItem.id,
+          url: cleanedUrl,
+          outputDir,
+          highSpeedMode: settings.highSpeedMode
+        });
+        
+        if (!result.success) {
+          setDownloads(prev => prev.map(d => d.id === newItem.id ? { 
+            ...d, 
+            status: 'error', 
+            error: result.error || 'No se pudo iniciar el torrent',
+            logs: result.detail ? [`[ERROR] ${result.detail}`] : d.logs
+          } : d));
+          return;
+        }
+      } else {
+        // Usar motor estándar para descargas directas (yt-dlp)
+        result = await window.electronAPI.startDownload({
+          id: newItem.id,
+          url: cleanedUrl,
+          outputDir,
+          audioOnly,
+          isTorrent: false,
+          useCookies: settings.useCookies,
+          cookiesBrowser: settings.cookiesBrowser,
+          formatId,
+          customTrackers: settings.customTrackers,
+          highSpeedMode: settings.highSpeedMode
+        });
+        
+        if (result && !result.ok) {
+          setDownloads(prev => prev.map(d => d.id === newItem.id ? { 
+            ...d, 
+            status: 'error', 
+            error: result.error || 'No se pudo iniciar la descarga' 
+          } : d));
+          return;
+        }
+      }
+
+      // Manejar éxito (outputDir puede venir en ambos formatos)
+      const finalDir = result.outputDir || (result.data && result.data.path);
+      if (finalDir) {
         setDownloads(prev => prev.map(d => d.id === newItem.id ? { ...d, outputDir: finalDir } : d));
       }
+      
     } catch (error: any) {
       console.error('Error starting download:', error);
       setDownloads(prev => prev.map(d => d.id === newItem.id ? { 

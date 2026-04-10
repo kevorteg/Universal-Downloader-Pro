@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getVideoFormats: (url: string) => ipcRenderer.invoke('video:getFormats', url),
 
   cancelDownload: (id: string) => ipcRenderer.invoke('download:cancel', id),
+  pauseDownload: (id: string) => ipcRenderer.invoke('download:pause', id),
+  resumeDownload: (id: string) => ipcRenderer.invoke('download:resume', id),
 
   getVideoInfo: (url: string) => ipcRenderer.invoke('download:getInfo', url),
   
@@ -44,8 +46,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Search (Premium Search Engine)
   getSuggestions: (query: string) => ipcRenderer.invoke('video:getSuggestions', query),
   searchVideos: (query: string, limit?: number) => ipcRenderer.invoke('video:searchVideos', query, limit),
+  searchMusic: (query: string, limit?: number) => ipcRenderer.invoke('video:searchMusic', query, limit),
   searchMovies: (query: string) => ipcRenderer.invoke('video:searchMovies', query),
   getMovieMagnets: (url: string) => ipcRenderer.invoke('video:getMovieMagnets', url),
+  
+  // Robust Torrents
+  scrapeTorrent: (url: string) => ipcRenderer.invoke('torrent:scrape', url),
+  downloadTorrent: (options: any) => ipcRenderer.invoke('torrent:download', options),
 
   // Listeners for download progress
   onDownloadProgress: (

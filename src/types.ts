@@ -36,6 +36,7 @@ export interface DownloadItem {
   totalDownloaded?: number   // Raw bytes
   totalUploaded?: number     // Raw bytes
   timeRemaining?: number     // Raw ms
+  isPaused?: boolean         // Torrent pause state
 }
 
 export type SidebarFilter =
@@ -56,7 +57,7 @@ export interface SearchResult {
   year?: string
   uploader?: string    // For YouTube/General
   duration?: string    // For YouTube/General
-  type: 'video' | 'movie'
+  type: 'video' | 'audio' | 'movie'
   quality?: string
 }
 
