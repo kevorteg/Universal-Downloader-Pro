@@ -74,7 +74,7 @@ declare global {
       searchMusic: (query: string, limit?: number) => Promise<any[]>
       searchMovies: (query: string) => Promise<any[]>
       getMovieMagnets: (url: string) => Promise<string | null>
-      resolveTorrent: (url: string) => Promise<{ success: boolean, data?: any, error?: string, detail?: string }>
+      scrapeTorrent: (url: string) => Promise<{ success: boolean, data?: { type: 'magnet' | 'torrent', links: any[] }, error?: string, detail?: string }>
       downloadTorrent: (options: any) => Promise<{ success: boolean, data?: any, error?: string, detail?: string }>
       onDownloadProgress: (callback: (data: DownloadProgressData) => void) => () => void
       onDownloadCompleted: (callback: (data: DownloadCompletedData) => void) => () => void
