@@ -327,11 +327,8 @@ ipcMain.handle('shell:showItemInFolder', (_event, filePath: string) => {
 ipcMain.handle('video:getFormats', async (event, url: string) => {
   return new Promise((resolve) => {
     // Usamos -J para obtener el JSON completo sin descargar
-    const args = ['--dump-json', '--no-playlist', '--restrict-filenames', `"${url}"`]
-    const proc = spawn(YT_DLP_EXE, args, { 
-      shell: true,
-      windowsVerbatimArguments: true
-    })
+    const args = ['--dump-json', '--no-playlist', '--restrict-filenames', url]
+    const proc = spawn(YT_DLP_EXE, args)
     
     let output = ''
     proc.stdout.on('data', (data) => {
@@ -446,6 +443,13 @@ ipcMain.handle('video:searchVideos', async (_event, query: string, limit?: numbe
   return await performSearch(query, limit || 12);
 })
 
+// Unified WebTorrent error listener
+function setupTorrentClient(client: any) {
+  client.on('error', (err: any) => {
+    console.error('[TORRENT CLIENT ERROR]', err);
+  });
+}
+
 ipcMain.handle('video:searchMovies', async (_event, query: string) => {
   // Call PelisPanda search directly (extracted logic)
   const results = await fetchPelisPandaResults(query);
@@ -519,12 +523,14 @@ ipcMain.handle('download:start', async (event, options: {
       const combinedTrackers = [...new Set([...PUBLIC_TRACKERS, ...userTrackers])]
 
       if (!torrentClient) {
-        // Dynamic import for ESM module
-        const WebTorrentClass = (await import('webtorrent')).default;
+        // Dynamic import logic that handles both .default and direct export
+        const mod = await import('webtorrent');
+        const WebTorrentClass = mod.default || mod;
         torrentClient = new WebTorrentClass({
           maxConns: highSpeedMode ? 200 : 100,
           dht: true
         });
+        setupTorrentClient(torrentClient);
       }
 
       // PREVENCIÓN DE DUPLICADOS: Verificar si el torrent ya existe en el cliente
@@ -592,6 +598,16 @@ ipcMain.handle('download:start', async (event, options: {
           }
         })
 
+        torrent.on('error', (err: any) => {
+          console.error(`[TORRENT ERROR] ID: ${id}`, err);
+          event.sender.send('download:completed', { 
+            id, 
+            success: false, 
+            error: `Error de red p2p: ${err.message || 'Fallo en torrent'}` 
+          });
+          activeTorrents.delete(id);
+        });
+
         torrent.on('done', () => {
           event.sender.send('download:completed', { id, success: true })
           if (Notification.isSupported()) {
@@ -644,20 +660,20 @@ ipcMain.handle('download:start', async (event, options: {
   const startProcess = (browserIndex: number) => {
     const browser = availableBrowsers[browserIndex];
     
-    // Construcción de argumentos con COMILLAS MANUALES para evitar fallos de shell en Windows
+    // Construcción de argumentos SIN comillas manuales (Node.js las añade automáticamente si hay espacios)
     const args: string[] = [
-      `"${url}"`,
+      url,
       '--newline',
       '--no-colors',
       '--no-playlist',
       '--restrict-filenames',
       '--windows-filenames',
-      '--no-part',           // evita archivos .part y errores de escritura parcial
-      '--no-mtime',          // no mantiene la fecha de modificación original
-      '-o', `"${outputTemplate}"`,
+      '--no-part',
+      '--no-mtime',
+      '-o', outputTemplate,
       '--merge-output-format', 'mp4',
       '--prefer-ffmpeg',
-      '--user-agent', '"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"',
+      '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       '--geo-bypass'
     ];
 
@@ -666,7 +682,7 @@ ipcMain.handle('download:start', async (event, options: {
     }
 
     if (FFMPEG_LOCATION) {
-      args.push('--ffmpeg-location', `"${FFMPEG_LOCATION}"`);
+      args.push('--ffmpeg-location', FFMPEG_LOCATION);
     }
 
     if (audioOnly) {
@@ -681,10 +697,8 @@ ipcMain.handle('download:start', async (event, options: {
     console.log(`[SISTEMA] Intentando descarga (${browser}):`, YT_DLP_EXE, args.join(' '));
 
     const proc = spawn(YT_DLP_EXE, args, {
-      shell: true,
       cwd: finalOutputDir,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsVerbatimArguments: true
+      stdio: ['ignore', 'pipe', 'pipe']
     });
 
     activeProcesses.set(id, proc);
@@ -824,11 +838,8 @@ ipcMain.handle('download:resume', (_event, id: string) => {
 // Get video info (without downloading)
 ipcMain.handle('download:getInfo', async (event, url: string) => {
   return new Promise((resolve) => {
-    const args = ['--dump-json', '--no-playlist', '--restrict-filenames', `"${url}"`]
-    const proc = spawn('yt-dlp', args, { 
-      shell: true,
-      windowsVerbatimArguments: true
-    })
+    const args = ['--dump-json', '--no-playlist', '--restrict-filenames', url]
+    const proc = spawn(YT_DLP_EXE, args)
     let output = ''
 
     proc.stdout.on('data', (chunk: Buffer) => {
