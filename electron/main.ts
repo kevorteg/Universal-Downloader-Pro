@@ -282,9 +282,21 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false,
       // In dev mode the origin is localhost:5173, which can't load file:// without this
-      webSecurity: !isDev
+      webSecurity: true
     }
   })
+
+  // Permitir que localhost en dev acceda al protocolo media://
+  if (isDev) {
+    mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Access-Control-Allow-Origin': ['*'],
+        }
+      })
+    })
+  }
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
@@ -1078,17 +1090,22 @@ ipcMain.handle('video:expandPlaylist', async (_event, url: string) => {
 app.whenReady().then(async () => {
   // Register the protocol handler for media://
   // Uses net.fetch (Electron's own fetcher) to serve local files securely
-  protocol.handle('media', (request) => {
+  protocol.handle('media', async (request) => {
     // The renderer now sends raw URL-encoded absolute paths
     const encodedPath = request.url.slice('media://'.length)
     const rawPath = decodeURIComponent(encodedPath)
-    
-    // pathToFileURL natively handles Windows drive letters, slashes, and spaces beautifully
     const fileUrl = pathToFileURL(rawPath).toString()
-    
-    console.log('[MEDIA] Raw path:', rawPath)
     console.log('[MEDIA] Serving URL:', fileUrl)
-    return net.fetch(fileUrl)
+    
+    try {
+      const response = await net.fetch(fileUrl, {
+        headers: request.headers, // pasar Range headers para seeking
+      })
+      return response
+    } catch (err: any) {
+      console.error('[MEDIA] Error sirviendo archivo:', err.message)
+      return new Response('Archivo no encontrado', { status: 404 })
+    }
   })
 
   createWindow()

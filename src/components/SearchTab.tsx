@@ -3,7 +3,7 @@ import { Search, Download, Loader2, Film, Calendar, Youtube, User, ChevronDown, 
 import { SearchResult } from '../types'
 
 interface SearchTabProps {
-  onAddDownload: (url: string, type: 'video' | 'audio' | 'torrent', title?: string) => void
+  onAddDownload: (url: string, type: 'video' | 'audio' | 'torrent', formatId?: string, customDir?: string, title?: string) => void
   isPro: boolean
 }
 
@@ -91,13 +91,13 @@ export default function SearchTab({ onAddDownload, isPro }: SearchTabProps) {
   const handleDownload = async (item: SearchResult) => {
     try {
       if (item.type === 'video') {
-        onAddDownload(item.url, 'video', item.title)
+        onAddDownload(item.url, 'video', undefined, undefined, item.title)
       } else if (item.type === 'audio') {
-        onAddDownload(item.url, 'audio', item.title)
+        onAddDownload(item.url, 'audio', undefined, undefined, item.title)
       } else {
         // En lugar de resolver el magnet aquí, lo enviamos como torrent 
         // y dejamos que el backend lo resuelva automáticamente.
-        onAddDownload(item.url, 'torrent', item.title)
+        onAddDownload(item.url, 'torrent', undefined, undefined, item.title)
       }
     } catch (err) {
       console.error('Error in search download flow:', err)

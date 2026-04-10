@@ -76,7 +76,7 @@ export default function App() {
         if (data.speed) updates.speed = data.speed
         if (data.eta) updates.eta = data.eta
         if (data.totalSize) updates.totalSize = data.totalSize
-        if (data.filename && !d.filename) {
+        if (data.filename) {
           const parts = data.filename.split(/[/\\]/)
           updates.filename = parts[parts.length - 1]
         }
@@ -137,7 +137,7 @@ export default function App() {
     setShowAddDialog(true)
   }
 
-  const startDownload = async (url: string, type: 'video' | 'audio' | 'torrent', formatId?: string, customDir?: string) => {
+  const startDownload = async (url: string, type: 'video' | 'audio' | 'torrent', formatId?: string, customDir?: string, initialTitle?: string) => {
     setShowAddDialog(false)
     const cleanedUrl = cleanUrl(url)
     const audioOnly = type === 'audio'
@@ -147,7 +147,7 @@ export default function App() {
     const newItem: DownloadItem = {
       id: uuidv4(),
       url: cleanedUrl,
-      title: cleanedUrl,
+      title: initialTitle || cleanedUrl,
       outputDir,
       audioOnly,
       isTorrent,
