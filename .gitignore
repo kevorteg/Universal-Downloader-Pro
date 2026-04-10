@@ -14,6 +14,12 @@ release
 !package.json
 !tsconfig*.json
 downloads.json
+bin/
+*.zip
+temp_ffmpeg/
+release/
+dist/
+dist-electron/
 
 # yt-dlp related
 *.ytdl

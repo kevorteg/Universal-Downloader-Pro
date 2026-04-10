@@ -14,8 +14,10 @@ export function loadSettings(): AppSettings {
     useCookies: false,
     cookiesBrowser: 'chrome',
     preferredQuality: 'best',
-  defaultAudioOnly: false,
-    autoStartOnBoot: false
+    defaultAudioOnly: false,
+    autoStartOnBoot: false,
+    customTrackers: [],
+    highSpeedMode: false
   }
 }
 
@@ -25,12 +27,19 @@ export function saveSettings(settings: AppSettings): void {
   } catch {}
 }
 
-export function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number, decimals = 2): string {
   if (bytes === 0) return '0 B'
+  if (!bytes) return '—'
   const k = 1024
+  const dm = decimals < 0 ? 0 : decimals
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
+}
+
+export function formatSpeed(bytesPerSec: number | undefined): string {
+  if (bytesPerSec === undefined || bytesPerSec === 0) return '0 B/s'
+  return formatBytes(bytesPerSec) + '/s'
 }
 
 export function formatDuration(seconds: number): string {
@@ -52,6 +61,27 @@ export function isValidUrl(url: string): boolean {
   } catch {
     return false
   }
+}
+
+export function cleanTorrentName(name: string): string {
+  if (!name) return 'Torrent'
+  
+  // Clean dots, underscores, dashes
+  let clean = name.replace(/[._-]/g, ' ')
+    // Remove technical metadata
+    .replace(/\b(WEB-DL|WEBRip|HDRip|BluRay|BRRip|DVDRip|H264|x264|x265|HEVC|1080h?p|720h?p|480h?p|576p|Dual-Lat|Dual|Multi|Sub|AAC|DTS|AC3|REMUX|UNCUT|Repack|RIP|Latino|Castellano|KORSUB|WEB|DL|DVDRip|BDRip|XviD|MP3|FLAC|ALAC|WAV|320kbps|Quality|Size|Complete|S\d+E\d+|Season\s*\d+|Pack|Collection|S\d+|WEB[ \-]DL)\b/gi, '')
+    // Remove years like [2024] or (2024) or just 2024
+    .replace(/[\[\(]?\d{4}[\]\)]?/g, '')
+    // Collapse spaces
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  // Max 90 characters
+  if (clean.length > 90) {
+    clean = clean.substring(0, 90).trim() + '...'
+  }
+  
+  return clean || 'Torrent'
 }
 
 export function getDomainFromUrl(url: string): string {

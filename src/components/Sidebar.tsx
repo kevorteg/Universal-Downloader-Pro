@@ -9,7 +9,8 @@ import {
   Video,
   AlertTriangle,
   ChevronRight,
-  Layers
+  Layers,
+  Search
 } from 'lucide-react'
 import { DownloadItem, SidebarFilter } from '../types'
 
@@ -51,6 +52,7 @@ export default function Sidebar({ downloads, filter, onFilterChange }: SidebarPr
     { id: 'video', label: 'Videos', icon: <Video size={14} />, count: counts.video },
     { id: 'audio', label: 'Audio / MP3', icon: <Music size={14} />, count: counts.audio, color: '#e879f9' },
     { id: 'torrent', label: 'Torrents', icon: <Layers size={14} />, count: counts.torrent, color: '#0ea5e9' },
+    { id: 'search', label: 'Buscador', icon: <Search size={14} />, count: 0, color: '#c026d3' },
   ]
 
   function renderItem(item: SectionItem) {

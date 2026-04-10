@@ -29,7 +29,12 @@ export interface DownloadItem {
   error?: string
   infoHash?: string          // Torrent infoHash
   peers?: number             // Number of connected peers
+  seeds?: number             // Number of seeds
   downloadSpeed?: number     // Raw bytes/s
+  uploadSpeed?: number       // Raw bytes/s
+  ratio?: number             // Upload / Download ratio
+  totalDownloaded?: number   // Raw bytes
+  totalUploaded?: number     // Raw bytes
   timeRemaining?: number     // Raw ms
 }
 
@@ -42,6 +47,15 @@ export type SidebarFilter =
   | 'audio'
   | 'video'
   | 'torrent'
+  | 'search'
+
+export interface MovieSearchResult {
+  title: string
+  year?: string
+  thumbnail?: string
+  url: string // The page URL to scrape magnet from
+  quality?: string
+}
 
 export interface VideoFormat {
   formatId: string
@@ -64,4 +78,6 @@ export interface AppSettings {
   preferredQuality: string // 'best' | '2160' | '1080' | '720' | '480'
   defaultAudioOnly: boolean
   autoStartOnBoot: boolean
+  customTrackers: string[]
+  highSpeedMode: boolean
 }

@@ -1,7 +1,7 @@
 import React from 'react'
 import { DownloadItem } from '../types'
-import { getStatusLabel, getDomainFromUrl } from '../utils'
-import { Music, Video, Loader2, CheckCircle2, XCircle, Clock, AlertTriangle } from 'lucide-react'
+import { getStatusLabel, getDomainFromUrl, formatSpeed, cleanTorrentName } from '../utils'
+import { Music, Video, Loader2, CheckCircle2, XCircle, Clock, AlertTriangle, Share2 } from 'lucide-react'
 
 interface DownloadListProps {
   downloads: DownloadItem[]
@@ -18,6 +18,9 @@ export default function DownloadList({
   onContextMenu,
   onDoubleClick
 }: DownloadListProps) {
+  const [sortKey, setSortKey] = React.useState<string>('addedAt')
+  const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('desc')
+
   if (downloads.length === 0) {
     return (
       <div
@@ -50,16 +53,60 @@ export default function DownloadList({
     )
   }
 
-  // Column widths
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortOrder('desc')
+    }
+  }
+
+  const sortedDownloads = [...downloads].sort((a, b) => {
+    let valA: any = (a as any)[sortKey]
+    let valB: any = (b as any)[sortKey]
+
+    // Special cases
+    if (sortKey === 'name') {
+      valA = (a.title || a.filename || a.url).toLowerCase()
+      valB = (b.title || b.filename || b.url).toLowerCase()
+    } else if (sortKey === 'size') {
+      // Very basic parsing for sorting purposes
+      const parseSize = (s: string) => {
+        if (!s || s === '—' || s === 'Calculando...') return 0
+        const multi = s.includes('GB') ? 1024 * 1024 * 1024 : s.includes('MB') ? 1024 * 1024 : 1024
+        return parseFloat(s) * multi
+      }
+      valA = parseSize(a.totalSize)
+      valB = parseSize(b.totalSize)
+    } else if (sortKey === 'speedDown') {
+      valA = a.downloadSpeed || 0
+      valB = b.downloadSpeed || 0
+    } else if (sortKey === 'speedUp') {
+      valA = a.uploadSpeed || 0
+      valB = b.uploadSpeed || 0
+    }
+
+    if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+    if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+    return 0
+  })
+
+  // Column settings
   const cols = {
-    icon: 32,
     name: 'flex-1',
-    site: 100,
-    size: 90,
-    speed: 90,
-    eta: 75,
-    status: 110,
-    progress: 140
+    size: 80,
+    progress: 130,
+    status: 95,
+    speedDown: 85,
+    speedUp: 85,
+    peersSeeds: 90,
+    eta: 70
+  }
+
+  const renderSortIcon = (key: string) => {
+    if (sortKey !== key) return null
+    return <span style={{ marginLeft: 4, fontSize: 8 }}>{sortOrder === 'asc' ? '▲' : '▼'}</span>
   }
 
   return (
@@ -68,33 +115,49 @@ export default function DownloadList({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `${cols.icon}px 1fr ${cols.site}px ${cols.size}px ${cols.progress}px ${cols.status}px ${cols.speed}px ${cols.eta}px`,
-          padding: '0 8px',
-          height: 28,
+          gridTemplateColumns: `1fr ${cols.size}px ${cols.progress}px ${cols.status}px ${cols.speedDown}px ${cols.speedUp}px ${cols.peersSeeds}px ${cols.eta}px`,
+          padding: '0 12px',
+          height: 30,
           alignItems: 'center',
           background: 'var(--bg-panel)',
           borderBottom: '1px solid var(--border)',
           flexShrink: 0,
-          fontSize: 11,
-          fontWeight: 600,
+          fontSize: 10.5,
+          fontWeight: 700,
           color: 'var(--text-muted)',
           textTransform: 'uppercase',
-          letterSpacing: 0.5
+          letterSpacing: 0.8
         }}
       >
-        <div />
-        <div>Nombre</div>
-        <div>Sitio</div>
-        <div style={{ textAlign: 'right' }}>Tamaño</div>
-        <div style={{ paddingLeft: 8 }}>Progreso</div>
-        <div>Estado</div>
-        <div style={{ textAlign: 'right' }}>Velocidad</div>
-        <div style={{ textAlign: 'right' }}>Tiempo</div>
+        <div className="cursor-pointer hover:text-white transition-colors flex items-center" onClick={() => handleSort('name')}>
+          Nombre {renderSortIcon('name')}
+        </div>
+        <div className="cursor-pointer hover:text-white transition-colors flex items-center justify-end" onClick={() => handleSort('size')}>
+          Tamaño {renderSortIcon('size')}
+        </div>
+        <div className="cursor-pointer hover:text-white transition-colors flex items-center pl-3" onClick={() => handleSort('progress')}>
+          Progreso {renderSortIcon('progress')}
+        </div>
+        <div className="cursor-pointer hover:text-white transition-colors flex items-center" onClick={() => handleSort('status')}>
+          Estado {renderSortIcon('status')}
+        </div>
+        <div className="cursor-pointer hover:text-white transition-colors flex items-center justify-end" onClick={() => handleSort('speedDown')}>
+          Bajada {renderSortIcon('speedDown')}
+        </div>
+        <div className="cursor-pointer hover:text-white transition-colors flex items-center justify-end" onClick={() => handleSort('speedUp')}>
+          Subida {renderSortIcon('speedUp')}
+        </div>
+        <div className="cursor-pointer hover:text-white transition-colors flex items-center justify-center font-mono text-[9px]" onClick={() => handleSort('peers')}>
+          P (S) {renderSortIcon('peers')}
+        </div>
+        <div className="cursor-pointer hover:text-white transition-colors flex items-center justify-end" onClick={() => handleSort('timeRemaining')}>
+          ETA {renderSortIcon('timeRemaining')}
+        </div>
       </div>
 
       {/* Rows */}
-      <div style={{ overflowY: 'auto', flex: 1 }}>
-        {downloads.map(item => (
+      <div style={{ overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
+        {sortedDownloads.map(item => (
           <DownloadRow
             key={item.id}
             item={item}
@@ -125,59 +188,60 @@ function DownloadRow({
 }) {
   const displayName = item.title && item.title !== item.url
     ? item.title
-    : (item.filename || getDomainFromUrl(item.url))
+    : (item.filename 
+        ? item.filename 
+        : (item.url.startsWith('magnet:') ? 'Iniciando torrent...' : getDomainFromUrl(item.url))
+      )
 
-  const site = getDomainFromUrl(item.url)
+  const isDownloading = item.status === 'downloading'
 
   return (
     <div
       className={`download-row ${isSelected ? 'selected' : ''}`}
       style={{
-        gridTemplateColumns: `32px 1fr 100px 90px 140px 110px 90px 75px`,
+        gridTemplateColumns: `1fr 80px 130px 95px 85px 85px 90px 70px`,
         display: 'grid',
-        padding: '0 8px',
-        height: 38,
+        padding: '0 12px',
+        height: 36,
         alignItems: 'center',
-        fontSize: 12,
-        borderLeft: isSelected ? '2px solid #c026d3' : '2px solid transparent'
+        fontSize: 11.5,
+        borderLeft: isSelected ? '2px solid #c026d3' : '2px solid transparent',
+        transition: 'background 0.1s ease'
       }}
       onClick={onSelect}
       onDoubleClick={() => onDoubleClick?.(item)}
       onContextMenu={e => onContextMenu(e, item)}
     >
-      {/* Type icon */}
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        {item.audioOnly
-          ? <Music size={14} style={{ color: '#e879f9' }} />
-          : <Video size={14} style={{ color: '#3b82f6' }} />
-        }
-      </div>
-
-      {/* Name */}
+      {/* Name with icon */}
       <div
         style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
           overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          color: 'var(--text-primary)',
           paddingRight: 8
         }}
-        title={displayName}
       >
-        {displayName}
-      </div>
-
-      {/* Site */}
-      <div
-        style={{
-          color: 'var(--text-muted)',
-          fontSize: 11,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
-        }}
-      >
-        {site}
+        <span style={{ flexShrink: 0, width: 14, display: 'flex', justifyContent: 'center' }}>
+          {item.isTorrent 
+            ? <Share2 size={12} style={{ color: '#c026d3' }} /> 
+            : item.audioOnly 
+              ? <Music size={12} style={{ color: '#e879f9' }} /> 
+              : <Video size={12} style={{ color: '#3b82f6' }} />
+          }
+        </span>
+        <span
+          style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            color: 'var(--text-primary)',
+            fontWeight: 450
+          }}
+          title={displayName}
+        >
+          {displayName}
+        </span>
       </div>
 
       {/* Size */}
@@ -186,13 +250,15 @@ function DownloadRow({
       </div>
 
       {/* Progress bar */}
-      <div style={{ paddingLeft: 8, paddingRight: 8 }}>
+      <div style={{ paddingLeft: 12, paddingRight: 8 }}>
         <div
           style={{
             background: 'var(--bg-elevated)',
-            borderRadius: 3,
-            height: 7,
-            overflow: 'hidden'
+            borderRadius: 2,
+            height: 12,
+            overflow: 'hidden',
+            position: 'relative',
+            border: '1px solid rgba(255,255,255,0.05)'
           }}
         >
           <div
@@ -201,15 +267,31 @@ function DownloadRow({
               height: '100%',
               width: `${item.progress}%`,
               background: item.status === 'completed'
-                ? 'var(--green)'
+                ? '#22c55e'
                 : item.status === 'error'
-                ? 'var(--red)'
-                : 'linear-gradient(90deg, #a21caf, #c026d3, #e879f9)'
+                ? '#ef4444'
+                : item.status === 'paused'
+                ? '#4b5563'
+                : 'linear-gradient(270deg, #c026d3, #a21caf)'
             }}
           />
-        </div>
-        <div style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 1, textAlign: 'right' }}>
-          {item.progress > 0 ? `${item.progress.toFixed(1)}%` : ''}
+          {item.progress > 0 && (
+            <div 
+              style={{ 
+                position: 'absolute', 
+                inset: 0, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                fontSize: 8,
+                fontWeight: 800,
+                color: item.progress > 50 ? 'white' : 'var(--text-muted)',
+                textShadow: item.progress > 50 ? '0 0 2px rgba(0,0,0,0.5)' : 'none'
+              }}
+            >
+              {item.progress.toFixed(0)}%
+            </div>
+          )}
         </div>
       </div>
 
@@ -218,14 +300,24 @@ function DownloadRow({
         <StatusBadge status={item.status} />
       </div>
 
-      {/* Speed */}
+      {/* Down Speed */}
       <div style={{ color: 'var(--text-secondary)', textAlign: 'right', fontSize: 11 }}>
-        {item.status === 'downloading' ? (item.speed || '—') : '—'}
+        {isDownloading ? (item.speed || '—') : '—'}
+      </div>
+
+      {/* Up Speed */}
+      <div style={{ color: '#a21caf', textAlign: 'right', fontSize: 11, opacity: 0.8 }}>
+        {isDownloading && item.isTorrent ? (item.uploadSpeed ? formatSpeed(item.uploadSpeed) : '0 B/s') : '—'}
+      </div>
+
+      {/* Peers (Seeds) */}
+      <div style={{ color: 'var(--text-muted)', textAlign: 'center', fontSize: 10.5 }}>
+        {item.isTorrent ? `${item.peers || 0} (${item.seeds || 0})` : '—'}
       </div>
 
       {/* ETA */}
       <div style={{ color: 'var(--text-secondary)', textAlign: 'right', fontSize: 11 }}>
-        {item.status === 'downloading' ? (item.eta || '—') : '—'}
+        {isDownloading ? (item.eta || '—') : '—'}
       </div>
     </div>
   )

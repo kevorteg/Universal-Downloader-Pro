@@ -6,6 +6,7 @@ import DownloadDetails from './components/DownloadDetails.tsx'
 import SettingsModal from './components/SettingsModal.tsx'
 import ContextMenu from './components/ContextMenu.tsx'
 import AddDialog from './components/AddDialog.tsx'
+import SearchTab from './components/SearchTab.tsx'
 import { DownloadItem, SidebarFilter, AppSettings, VideoFormat } from './types'
 import { loadSettings, saveSettings, isValidUrl, cleanUrl } from './utils.ts'
 import { v4 as uuidv4 } from 'uuid'
@@ -65,9 +66,13 @@ export default function App() {
         if (data.speed) updates.speed = data.speed
         if (data.eta) updates.eta = data.eta
         if (data.totalSize) updates.totalSize = data.totalSize
+        if (data.title) updates.title = data.title // Priority: use the clean title from backend
         if (data.filename && !d.filename) {
           const parts = data.filename.split(/[/\\]/)
-          updates.filename = parts[parts.length - 1]
+          const cleanName = parts[parts.length - 1]
+          updates.filename = cleanName
+          // Si el título actual es solo el URL (un magnet), lo actualizamos al nombre real
+          if (d.title === d.url) updates.title = data.title || cleanName
         }
         if (data.infoHash) updates.infoHash = data.infoHash
         if (data.peers != null) updates.peers = data.peers
@@ -122,7 +127,7 @@ export default function App() {
     setShowAddDialog(true)
   }
 
-  const startDownload = async (url: string, type: 'video' | 'audio' | 'torrent', formatId?: string, customDir?: string) => {
+  const startDownload = async (url: string, type: 'video' | 'audio' | 'torrent', formatId?: string, customDir?: string, initialTitle?: string) => {
     setShowAddDialog(false)
     const cleanedUrl = cleanUrl(url)
     const audioOnly = type === 'audio'
@@ -132,7 +137,7 @@ export default function App() {
     const newItem: DownloadItem = {
       id: uuidv4(),
       url: cleanedUrl,
-      title: cleanedUrl,
+      title: initialTitle || (isTorrent ? 'Verificando metadatos...' : cleanedUrl),
       outputDir,
       audioOnly,
       isTorrent,
@@ -140,7 +145,7 @@ export default function App() {
       progress: 0,
       speed: '',
       eta: '',
-      totalSize: '',
+      totalSize: isTorrent ? 'Calculando...' : '',
       filename: '',
       addedAt: Date.now(),
       logs: []
@@ -149,23 +154,27 @@ export default function App() {
     setDownloads(prev => [newItem, ...prev])
     setSelectedId(newItem.id)
 
-    // 1. Get info in background (optional, but nice)
-    window.electronAPI?.getVideoInfo(cleanedUrl).then(info => {
-      if (info.ok) {
-        setDownloads(prev => prev.map(d => d.id === newItem.id ? {
-          ...d,
-          title: info.title || d.title,
-          thumbnail: info.thumbnail,
-          uploader: info.uploader,
-          extractor: info.extractor,
-          duration: info.duration
-        } : d))
-      }
-    }).catch(() => {})
+    // 1. Get info in background (optional, but nice) - Skip for magnets/torrents
+    if (!isTorrent) {
+      window.electronAPI?.getVideoInfo(cleanedUrl).then(info => {
+        if (info.ok) {
+          setDownloads(prev => prev.map(d => d.id === newItem.id ? {
+            ...d,
+            title: initialTitle || info.title || d.title,
+            thumbnail: info.thumbnail,
+            uploader: info.uploader,
+            extractor: info.extractor,
+            duration: info.duration,
+            totalSize: info.size || d.totalSize,
+            filename: info.filename || d.filename
+          } : d))
+        }
+      }).catch(() => {})
+    }
 
     // 2. Start actual download
     try {
-      const result = await (window.electronAPI as any).startDownload({
+      const result = await window.electronAPI.startDownload({
         id: newItem.id,
         url: cleanedUrl,
         outputDir,
@@ -173,15 +182,48 @@ export default function App() {
         isTorrent,
         useCookies: settings.useCookies,
         cookiesBrowser: settings.cookiesBrowser,
-        formatId
-      })
-      if (result && result.ok && result.outputDir) {
-        setDownloads(prev => prev.map(d => d.id === newItem.id ? { ...d, outputDir: result.outputDir } : d))
+        formatId,
+        customTrackers: settings.customTrackers,
+        highSpeedMode: settings.highSpeedMode
+      });
+      
+      if (result && !result.ok) {
+        setDownloads(prev => prev.map(d => d.id === newItem.id ? { 
+          ...d, 
+          status: 'error', 
+          error: result.error || 'No se pudo iniciar la descarga' 
+        } : d));
+      } else if (result && result.ok && result.outputDir) {
+        const finalDir: string = result.outputDir;
+        setDownloads(prev => prev.map(d => d.id === newItem.id ? { ...d, outputDir: finalDir } : d));
       }
-    } catch (error) {
-      console.error('Error starting download:', error)
+    } catch (error: any) {
+      console.error('Error starting download:', error);
+      setDownloads(prev => prev.map(d => d.id === newItem.id ? { 
+        ...d, 
+        status: 'error', 
+        error: error.message || 'Error de conexión con el sistema' 
+      } : d));
     }
   }
+
+  const pauseDownload = useCallback(async (id: string) => {
+    if (window.electronAPI) {
+      await window.electronAPI.pauseDownload(id)
+    }
+    setDownloads(prev => prev.map(d =>
+      d.id === id ? { ...d, status: 'paused' } : d
+    ))
+  }, [])
+
+  const resumeDownload = useCallback(async (id: string) => {
+    if (window.electronAPI) {
+      await window.electronAPI.resumeDownload(id)
+    }
+    setDownloads(prev => prev.map(d =>
+      d.id === id ? { ...d, status: 'downloading' } : d
+    ))
+  }, [])
 
   const cancelDownload = useCallback(async (id: string) => {
     if (window.electronAPI) {
@@ -192,7 +234,10 @@ export default function App() {
     ))
   }, [])
 
-  const removeDownload = useCallback((id: string) => {
+  const removeDownload = useCallback(async (id: string, deleteFiles?: boolean) => {
+    if (deleteFiles && window.electronAPI) {
+      await window.electronAPI.cancelDownload(id, true)
+    }
     setDownloads(prev => prev.filter(d => d.id !== id))
     if (selectedId === id) setSelectedId(null)
   }, [selectedId])
@@ -299,13 +344,19 @@ export default function App() {
 
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="flex-1 overflow-hidden" style={{ minHeight: 0 }}>
-            <DownloadList
-              downloads={filteredDownloads}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              onContextMenu={handleContextMenu}
-              onDoubleClick={(item) => window.electronAPI?.openFolder(item.outputDir)}
-            />
+            {filter === 'search' ? (
+              <SearchTab 
+                onAddDownload={(url, type, title) => startDownload(url, type, undefined, undefined, title)} 
+              />
+            ) : (
+              <DownloadList
+                downloads={filteredDownloads}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onContextMenu={handleContextMenu}
+                onDoubleClick={(item) => window.electronAPI?.openFolder(item.outputDir)}
+              />
+            )}
           </div>
 
           {selectedItem && (
@@ -328,6 +379,8 @@ export default function App() {
                   item={selectedItem}
                   onCancel={cancelDownload}
                   onRemove={removeDownload}
+                  onPause={pauseDownload}
+                  onResume={resumeDownload}
                   onOpenFolder={(item: DownloadItem) => {
                     window.electronAPI?.openFolder(item.outputDir)
                   }}
@@ -365,6 +418,8 @@ export default function App() {
           onClose={closeContextMenu}
           onCancel={cancelDownload}
           onRemove={removeDownload}
+          onPause={pauseDownload}
+          onResume={resumeDownload}
           onOpenFolder={(item: DownloadItem) => window.electronAPI?.openFolder(item.outputDir)}
           onCopyUrl={(item: DownloadItem) => navigator.clipboard.writeText(item.url)}
         />

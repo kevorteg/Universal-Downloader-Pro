@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { AppSettings } from '../types'
-import { Settings, Folder, Save, X, Globe, UserCheck, HardDrive } from 'lucide-react'
+import { Settings, Folder, Save, X, Globe, UserCheck, HardDrive, Share2 } from 'lucide-react'
 
 interface SettingsModalProps {
   settings: AppSettings
@@ -93,7 +93,6 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
             )}
           </div>
 
-          {/* General options */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[12px] text-white/80">Predeterminar "Solo Audio"</span>
@@ -104,6 +103,43 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
                 onChange={e => setForm(prev => ({ ...prev, defaultAudioOnly: e.target.checked }))}
               />
             </div>
+          </div>
+
+          {/* High Speed Mode */}
+          <div className="space-y-3 bg-fuchsia-500/5 p-4 rounded-lg border border-fuchsia-500/10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Share2 size={16} className="text-fuchsia-400" />
+                <div>
+                  <div className="text-[13px] font-medium text-white">Modo Alta Velocidad (Torrent)</div>
+                  <div className="text-[11px] text-muted">Aumenta conexiones y habilita DHT/PEX para descargas más rápidas.</div>
+                </div>
+              </div>
+              <div 
+                className={`w-10 h-5 rounded-full p-1 transition-colors duration-200 cursor-pointer ${form.highSpeedMode ? 'bg-fuchsia-600' : 'bg-zinc-700'}`}
+                onClick={() => setForm(prev => ({ ...prev, highSpeedMode: !prev.highSpeedMode }))}
+              >
+                <div className={`w-3 h-3 bg-white rounded-full transition-transform duration-200 ${form.highSpeedMode ? 'translate-x-5' : 'translate-x-0'}`} />
+              </div>
+            </div>
+          </div>
+
+          {/* Custom Trackers */}
+          <div className="space-y-2 bg-black/20 p-4 rounded-lg border border-white/5">
+            <label className="text-[11px] uppercase tracking-wider font-bold text-muted flex items-center gap-2">
+              <Share2 size={12} />
+              Trackers Personalizados (Torrents)
+            </label>
+            <textarea
+              className="w-full h-20 bg-black/40 border border-white/5 rounded p-2 text-[11px] text-white/70 focus:border-fuchsia-500/50 outline-none resize-none placeholder:text-white/10"
+              placeholder="Pega aquí tus trackers (uno por línea)..."
+              value={(form.customTrackers || []).join('\n')}
+              onChange={e => {
+                const list = e.target.value.split('\n').map(t => t.trim()).filter(Boolean)
+                setForm(prev => ({ ...prev, customTrackers: list }))
+              }}
+            />
+            <p className="text-[9px] text-muted">Añade más enlaces para mejorar la velocidad y disponibilidad de tus Torrents.</p>
           </div>
         </div>
 

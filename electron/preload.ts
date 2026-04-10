@@ -41,6 +41,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveHistory: (items: any[]) => ipcRenderer.invoke('history:save', items),
   clearHistory: (items: any[]) => ipcRenderer.invoke('history:clearCompleted', items),
 
+  // Search (PelisPanda)
+  searchMovies: (query: string) => ipcRenderer.invoke('pelis:search', query),
+  getMovieMagnets: (url: string) => ipcRenderer.invoke('pelis:getMagnet', url),
+
   // Listeners for download progress
   onDownloadProgress: (
     callback: (data: {
