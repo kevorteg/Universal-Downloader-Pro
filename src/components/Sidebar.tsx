@@ -11,7 +11,8 @@ import {
   ChevronRight,
   Layers,
   Search,
-  Crown
+  Crown,
+  Film
 } from 'lucide-react'
 import { DownloadItem, SidebarFilter } from '../types'
 
@@ -57,6 +58,7 @@ export default function Sidebar({ downloads, filter, onFilterChange, onOpenSetti
     { id: 'audio', label: 'Audio / MP3', icon: <Music size={14} />, count: counts.audio, color: '#e879f9' },
     { id: 'torrent', label: 'Torrents', icon: <Layers size={14} />, count: counts.torrent, color: '#0ea5e9' },
     { id: 'search', label: 'Buscador', icon: <div className="flex items-center gap-1.5"><Search size={14} />{!isPro && <Crown size={9} className="text-yellow-500 fill-yellow-500" />}</div>, count: 0, color: '#c026d3' },
+    { id: 'player', label: 'Reproductor Pro', icon: <div className="flex items-center gap-1.5"><Film size={14} /><Crown size={9} className="text-yellow-400 fill-yellow-400" /></div>, count: downloads.filter(d => d.status === 'completed' && !d.audioOnly).length, color: '#f59e0b' },
   ]
 
   function renderItem(item: SectionItem) {

@@ -22,7 +22,7 @@ export default function SearchTab({ onAddDownload, isPro }: SearchTabProps) {
   // Autocomplete logic
   useEffect(() => {
     const timer = setTimeout(async () => {
-      if (query.trim().length > 2 && activeTab === 'video') {
+      if (query.trim().length > 2 && activeTab === 'video' && window.electronAPI) {
         const data = await window.electronAPI.getSuggestions(query)
         setSuggestions(data)
         setShowSuggestions(true)
@@ -61,7 +61,12 @@ export default function SearchTab({ onAddDownload, isPro }: SearchTabProps) {
     try {
       let data: SearchResult[] = []
       const limit = isLoadMore ? searchLimit + 12 : 12
-      
+
+      if (!window.electronAPI) {
+        setError('Esta función solo está disponible en la app de escritorio.')
+        return
+      }
+
       if (activeTab === 'video') {
         data = await window.electronAPI.searchVideos(query, limit)
       } else if (activeTab === 'audio') {

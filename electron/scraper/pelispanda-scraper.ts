@@ -1,19 +1,32 @@
 import { app } from 'electron';
 import puppeteer from 'puppeteer-core';
 import { URL } from 'url';
+import { join } from 'path';
+import { existsSync } from 'fs';
 
 /**
  * Obtiene la ruta del ejecutable de Chromium embebido en Electron.
  * En desarrollo suele ser el binario de Electron; en producción el exe de la app.
  */
 function getElectronChromiumPath(): string {
-  try {
-    // @ts-ignore - Algunos entornos de electron-vite/custom builds exponen esto
-    if (app && (app as any).__chromium) return (app as any).__chromium;
-    return process.execPath;
-  } catch {
-    return process.execPath;
+  // En desarrollo: electron está en node_modules
+  const devPaths = [
+    join(process.cwd(), 'node_modules', 'electron', 'dist', 'electron.exe'),       // Windows dev
+    join(process.cwd(), 'node_modules', 'electron', 'dist', 'electron'),            // Linux dev
+    join(process.cwd(), 'node_modules', 'electron', 'dist', 'Electron.app', 'Contents', 'MacOS', 'Electron'), // Mac dev
+  ];
+
+  for (const p of devPaths) {
+    if (existsSync(p)) {
+      console.log('[Scraper] Usando Chromium de desarrollo:', p);
+      return p;
+    }
   }
+
+  // En producción: process.execPath sí es el binario correcto
+  // porque el .exe de Electron-builder contiene Chromium
+  console.log('[Scraper] Usando Chromium de producción:', process.execPath);
+  return process.execPath;
 }
 
 export interface ScrapedLink {
@@ -62,6 +75,7 @@ export async function extractMagnetsFromUrl(url: string): Promise<ScrapeResult> 
     await page.evaluateOnNewDocument(() => {
       // @ts-ignore
       Object.defineProperty(navigator, 'webdriver', { get: () => false });
+      (window as any).chrome = { runtime: {} };
     });
 
     await page.goto(url, {

@@ -14,7 +14,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron', 'webtorrent']
+              external: ['electron', 'webtorrent', 'bufferutil', 'utf-8-validate', 'node-datachannel']
             }
           }
         }
@@ -25,7 +25,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron', 'webtorrent']
+              external: ['electron', 'webtorrent', 'bufferutil', 'utf-8-validate', 'node-datachannel']
             }
           }
         },

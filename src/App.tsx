@@ -7,6 +7,7 @@ import DownloadDetails from './components/DownloadDetails.tsx'
 import SettingsModal from './components/SettingsModal.tsx'
 import ContextMenu from './components/ContextMenu.tsx'
 import AddDialog from './components/AddDialog.tsx'
+import VideoPlayer from './components/VideoPlayer.tsx'
 import { DownloadItem, SidebarFilter, AppSettings, VideoFormat } from './types'
 import { loadSettings, saveSettings, isValidUrl, cleanUrl } from './utils.ts'
 import { v4 as uuidv4 } from 'uuid'
@@ -24,6 +25,8 @@ export default function App() {
   } | null>(null)
   const [detailsHeight, setDetailsHeight] = useState(220)
   const [isPro, setIsPro] = useState(false)
+  const [nowPlaying, setNowPlaying] = useState<{ path: string; title: string } | null>(null)
+  const [playNotification, setPlayNotification] = useState<{ id: string; title: string } | null>(null)
   const resizing = useRef(false)
   const isInitialMount = useRef(true)
 
@@ -84,13 +87,19 @@ export default function App() {
     const unsubCompleted = window.electronAPI.onDownloadCompleted((data) => {
       setDownloads(prev => prev.map(d => {
         if (d.id !== data.id) return d
-        return {
+        const updated = {
           ...d,
           status: data.success ? 'completed' : 'error',
           progress: data.success ? 100 : d.progress,
           completedAt: Date.now(),
           error: data.error || (data.success ? '' : 'Error desconocido')
+        } as DownloadItem
+        // Show play notification for completed video downloads
+        if (data.success && !d.audioOnly && !d.isTorrent) {
+          setPlayNotification({ id: d.id, title: d.title || d.url })
+          setTimeout(() => setPlayNotification(null), 8000)
         }
+        return updated
       }))
     })
 
@@ -298,6 +307,7 @@ export default function App() {
       case 'audio': return d.audioOnly && !d.isTorrent
       case 'video': return !d.audioOnly && !d.isTorrent
       case 'torrent': return !!d.isTorrent
+      case 'player': return d.status === 'completed' && !d.audioOnly && !d.isTorrent
       default: return true
     }
   })
@@ -330,6 +340,16 @@ export default function App() {
           <div className="flex-1 overflow-hidden" style={{ minHeight: 0 }}>
             {filter === 'search' ? (
               <SearchTab onAddDownload={startDownload} isPro={isPro} />
+            ) : filter === 'player' ? (
+              <PlayerTab
+                downloads={filteredDownloads}
+                nowPlaying={nowPlaying}
+                onPlay={(item) => {
+                  const filePath = [item.outputDir, item.filename]
+                    .join('/').replace(/\\/g, '/').replace(/\/\//g, '/')
+                  setNowPlaying({ path: filePath, title: item.title || item.filename })
+                }}
+              />
             ) : (
               <DownloadList
                 downloads={filteredDownloads}
@@ -337,6 +357,12 @@ export default function App() {
                 onSelect={setSelectedId}
                 onContextMenu={handleContextMenu}
                 onDoubleClick={(item) => window.electronAPI?.openFolder(item.outputDir)}
+                onPlay={(item) => {
+                  const filePath = [item.outputDir, item.filename]
+                    .join('/').replace(/\\/g, '/').replace(/\/\//g, '/')
+                  setNowPlaying({ path: filePath, title: item.title || item.filename })
+                  setFilter('player')
+                }}
               />
             )}
           </div>
@@ -410,6 +436,124 @@ export default function App() {
           onResume={handleResumeDownload}
         />
       )}
+
+      {/* 🎬 Download Complete Play Notification Toast */}
+      {playNotification && (
+        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-500">
+          <div className="bg-gray-900/95 backdrop-blur-xl border border-amber-500/30 rounded-2xl p-4 shadow-2xl shadow-amber-500/10 max-w-xs">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                <span className="text-amber-400 text-lg">🎬</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-black text-amber-400 uppercase tracking-widest mb-0.5">¡Descarga lista!</p>
+                <p className="text-[12px] text-white/80 truncate font-medium">{playNotification.title}</p>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => {
+                      const item = downloads.find(d => d.id === playNotification.id)
+                      if (item) {
+                        const filePath = item.outputDir + '/' + item.filename
+                        setNowPlaying({ path: filePath, title: item.title || item.filename })
+                        setFilter('player')
+                      }
+                      setPlayNotification(null)
+                    }}
+                    className="flex-1 bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-black py-1.5 px-3 rounded-lg transition-all"
+                  >
+                    ▶ Reproducir
+                  </button>
+                  <button
+                    onClick={() => setPlayNotification(null)}
+                    className="text-[10px] text-white/40 hover:text-white/70 px-2 transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── PlayerTab Helper Component ───
+function PlayerTab({ downloads, nowPlaying, onPlay }: {
+  downloads: DownloadItem[]
+  nowPlaying: { path: string; title: string } | null
+  onPlay: (item: DownloadItem) => void
+}) {
+  return (
+    <div className="flex h-full">
+      {/* Playlist sidebar */}
+      <div className="w-64 flex-shrink-0 border-r border-white/5 flex flex-col bg-black/20">
+        <div className="px-4 py-3 border-b border-white/5">
+          <h3 className="text-[11px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
+            <span>🎬</span> Mis Videos
+          </h3>
+          <p className="text-[9px] text-white/30 mt-0.5">{downloads.length} video{downloads.length !== 1 ? 's' : ''} disponible{downloads.length !== 1 ? 's' : ''}</p>
+        </div>
+        <div className="flex-1 overflow-y-auto py-2">
+          {downloads.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-40 gap-3 text-white/20">
+              <span className="text-3xl">📂</span>
+              <p className="text-[11px] text-center px-4">Descarga un video para verlo aquí</p>
+            </div>
+          ) : (
+            downloads.map(item => (
+              <button
+                key={item.id}
+                onClick={() => onPlay(item)}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition-all text-left group ${
+                  nowPlaying?.title === (item.title || item.filename) ? 'bg-amber-500/10 border-r-2 border-amber-500' : ''
+                }`}
+              >
+                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {item.thumbnail ? (
+                    <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-sm">🎞️</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold text-white/80 truncate group-hover:text-white transition-colors">
+                    {item.title || item.filename || 'Video sin título'}
+                  </p>
+                  <p className="text-[9px] text-white/30">{item.filename?.split('.').pop()?.toUpperCase() || 'VIDEO'}</p>
+                </div>
+                <span className="text-white/20 group-hover:text-amber-400 transition-colors text-sm">▶</span>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Video Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {nowPlaying ? (() => {
+          // Pass the fully URL-encoded raw path to the custom protocol
+          const mediaUrl = `media://${encodeURIComponent(nowPlaying.path)}`
+          console.log('[Player] media URL:', mediaUrl)
+          return (
+            <VideoPlayer
+              url={mediaUrl}
+              title={nowPlaying.title}
+            />
+          )
+        })() : (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 text-white/20">
+            <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center">
+              <span className="text-5xl">🎬</span>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-white/40">Reproductor Pro</p>
+              <p className="text-[12px] text-white/20 mt-1">Selecciona un video de la lista para reproducirlo</p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

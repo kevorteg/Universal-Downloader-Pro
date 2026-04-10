@@ -8,7 +8,9 @@ import {
   dialog,
   clipboard,
   Notification,
-  nativeImage
+  nativeImage,
+  protocol,
+  net
 } from 'electron'
 import { join } from 'path'
 import { spawn, ChildProcess } from 'child_process'
@@ -16,6 +18,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs'
 import { readFile, writeFile, unlink } from 'fs/promises'
 import { homedir, hostname, userInfo } from 'os'
 import { createHash } from 'crypto'
+import { pathToFileURL } from 'url'
 import { registerTorrentHandlers } from './ipc-handlers'
 
 const DANGEROUS_EXTENSIONS = ['.exe', '.scr', '.msi', '.bat', '.cmd', '.vbs', '.js', '.jse', '.wsf', '.wsh']
@@ -93,6 +96,15 @@ class HistoryManager {
       // Cleanup: all "downloading" or "queued" items from last session
       // should be marked as "paused" or "error" since the process died
       return items.map((item: any) => {
+        // Fix legacy paths that were saved with yt-dlp intermediate tags like .f399.mp4
+        if (item.path && item.path.match(/\.f\d+\.[a-zA-Z0-9]+$/)) {
+          item.path = item.path.replace(/\.f\d+\.([a-zA-Z0-9]+)$/, '.$1')
+          // If extension originally was a track format, sometimes it merges to .mp4
+          if (!existsSync(item.path)) {
+            item.path = item.path.replace(/\.[a-zA-Z0-9]+$/, '.mp4')
+          }
+        }
+
         if (item.status === 'downloading' || item.status === 'queued') {
           return { ...item, status: 'paused', progress: item.progress || 0 }
         }
@@ -170,8 +182,13 @@ class LicenseManager {
     const status = await this.getStatus();
     if (!status.isPro) return false;
 
+    // BYPASS for developer key - skip online validation
+    if (status.key === 'UNIVERSAL-PRO-DEV-2024') {
+      console.log('[LICENSE] Dev key detected, skipping online validation.');
+      return true;
+    }
+
     try {
-      // Logic to verify with Lemon Squeezy if online
       const response = await fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
         method: 'POST',
         headers: {
@@ -241,6 +258,11 @@ function showDailyVerse() {
   }
 }
 
+// Register custom protocol for local media
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'media', privileges: { bypassCSP: true, stream: true, secure: true, supportFetchAPI: true } }
+]);
+
 // ─────────────────────────────────────────
 // Create main window
 // ─────────────────────────────────────────
@@ -258,7 +280,9 @@ function createWindow() {
       preload: join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
+      // In dev mode the origin is localhost:5173, which can't load file:// without this
+      webSecurity: !isDev
     }
   })
 
@@ -354,14 +378,23 @@ function parseProgress(line: string) {
   const sizeMatch = line.match(/of\s+([\d.]+\s*\w+iB)/)
   const speedMatch = line.match(/at\s+([\d.]+\s*\w+iB\/s)/)
   const etaMatch = line.match(/ETA\s+(\d+:\d+)/)
+  
+  // Track final generated file paths carefully, avoiding intermediate files
   const fileMatch = line.match(/\[download\] Destination: (.+)/)
+  const mergeMatch = line.match(/\[Merger\] Merging formats into "(.+)"/)
+  const alreadyMatch = line.match(/\[download\] (.+) has already been downloaded/)
+  
+  let parsedFilename = null
+  if (mergeMatch) parsedFilename = mergeMatch[1].trim()
+  else if (alreadyMatch) parsedFilename = alreadyMatch[1].trim()
+  else if (fileMatch) parsedFilename = fileMatch[1].trim()
 
   return {
     percent: pctMatch ? parseFloat(pctMatch[1]) : null,
     totalSize: sizeMatch ? sizeMatch[1] : null,
     speed: speedMatch ? speedMatch[1] : null,
     eta: etaMatch ? etaMatch[1] : null,
-    filename: fileMatch ? fileMatch[1].trim() : null
+    filename: parsedFilename
   }
 }
 
@@ -1043,6 +1076,21 @@ ipcMain.handle('video:expandPlaylist', async (_event, url: string) => {
 // App lifecycle
 // ─────────────────────────────────────────
 app.whenReady().then(async () => {
+  // Register the protocol handler for media://
+  // Uses net.fetch (Electron's own fetcher) to serve local files securely
+  protocol.handle('media', (request) => {
+    // The renderer now sends raw URL-encoded absolute paths
+    const encodedPath = request.url.slice('media://'.length)
+    const rawPath = decodeURIComponent(encodedPath)
+    
+    // pathToFileURL natively handles Windows drive letters, slashes, and spaces beautifully
+    const fileUrl = pathToFileURL(rawPath).toString()
+    
+    console.log('[MEDIA] Raw path:', rawPath)
+    console.log('[MEDIA] Serving URL:', fileUrl)
+    return net.fetch(fileUrl)
+  })
+
   createWindow()
   createTray()
   

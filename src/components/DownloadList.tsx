@@ -1,7 +1,7 @@
 import React from 'react'
 import { DownloadItem } from '../types'
 import { getStatusLabel, getDomainFromUrl, formatSpeed, cleanTorrentName } from '../utils'
-import { Music, Video, Loader2, CheckCircle2, XCircle, Clock, AlertTriangle, Share2 } from 'lucide-react'
+import { Music, Video, Loader2, CheckCircle2, XCircle, Clock, AlertTriangle, Share2, Play } from 'lucide-react'
 
 interface DownloadListProps {
   downloads: DownloadItem[]
@@ -9,6 +9,7 @@ interface DownloadListProps {
   onSelect: (id: string) => void
   onContextMenu: (e: React.MouseEvent, item: DownloadItem) => void
   onDoubleClick?: (item: DownloadItem) => void
+  onPlay?: (item: DownloadItem) => void
 }
 
 export default function DownloadList({
@@ -16,7 +17,8 @@ export default function DownloadList({
   selectedId,
   onSelect,
   onContextMenu,
-  onDoubleClick
+  onDoubleClick,
+  onPlay
 }: DownloadListProps) {
   const [sortKey, setSortKey] = React.useState<string>('addedAt')
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('desc')
@@ -165,6 +167,7 @@ export default function DownloadList({
             onSelect={() => onSelect(item.id)}
             onContextMenu={onContextMenu}
             onDoubleClick={onDoubleClick}
+            onPlay={onPlay}
           />
         ))}
       </div>
@@ -178,13 +181,15 @@ function DownloadRow({
   isSelected,
   onSelect,
   onContextMenu,
-  onDoubleClick
+  onDoubleClick,
+  onPlay
 }: {
   item: DownloadItem
   isSelected: boolean
   onSelect: () => void
   onContextMenu: (e: React.MouseEvent, item: DownloadItem) => void
   onDoubleClick?: (item: DownloadItem) => void
+  onPlay?: (item: DownloadItem) => void
 }) {
   const displayName = item.title && item.title !== item.url
     ? item.title
@@ -303,9 +308,19 @@ function DownloadRow({
         </div>
       </div>
 
-      {/* Status */}
-      <div>
+      {/* Status + Play */}
+      <div className="flex items-center gap-1.5">
         <StatusBadge status={item.status} />
+        {item.status === 'completed' && !item.audioOnly && !item.isTorrent && onPlay && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onPlay(item) }}
+            className="flex items-center gap-1 text-[9px] font-black bg-amber-500/20 hover:bg-amber-500/40 text-amber-400 px-1.5 py-0.5 rounded-md transition-all border border-amber-500/20"
+            title="Reproducir en el reproductor integrado"
+          >
+            <Play size={8} className="fill-amber-400" />
+            Ver
+          </button>
+        )}
       </div>
 
       {/* Down Speed */}

@@ -41,11 +41,13 @@
     "vite-plugin-electron-renderer": "^0.14.5"
   },
   "dependencies": {
+    "@types/video.js": "^7.3.58",
     "lucide-react": "^0.314.0",
     "puppeteer-core": "^24.40.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "uuid": "^9.0.0",
+    "video.js": "^8.23.7",
     "webtorrent": "^2.8.5"
   },
   "build": {

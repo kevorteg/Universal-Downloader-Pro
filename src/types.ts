@@ -49,6 +49,7 @@ export type SidebarFilter =
   | 'video'
   | 'torrent'
   | 'search'
+  | 'player'
 
 export interface SearchResult {
   title: string
