@@ -14,7 +14,7 @@ import {
 } from 'electron'
 import { join } from 'path'
 import { spawn, ChildProcess } from 'child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, statSync, createReadStream } from 'fs'
 import { readFile, writeFile, unlink } from 'fs/promises'
 import { homedir, hostname, userInfo } from 'os'
 import { createHash } from 'crypto'
@@ -1087,24 +1087,65 @@ ipcMain.handle('video:expandPlaylist', async (_event, url: string) => {
 // ─────────────────────────────────────────
 // App lifecycle
 // ─────────────────────────────────────────
+function getMimeType(filePath: string): string {
+  const ext = filePath.split('.').pop()?.toLowerCase() || ''
+  const map: Record<string, string> = {
+    mp4: 'video/mp4', webm: 'video/webm', mkv: 'video/x-matroska',
+    mov: 'video/quicktime', avi: 'video/x-msvideo', mp3: 'audio/mpeg',
+    m4a: 'audio/mp4', flac: 'audio/flac',
+  }
+  return map[ext] || 'video/mp4'
+}
+
 app.whenReady().then(async () => {
   // Register the protocol handler for media://
-  // Uses net.fetch (Electron's own fetcher) to serve local files securely
   protocol.handle('media', async (request) => {
-    // The renderer now sends raw URL-encoded absolute paths
-    const encodedPath = request.url.slice('media://'.length)
-    const rawPath = decodeURIComponent(encodedPath)
-    const fileUrl = pathToFileURL(rawPath).toString()
-    console.log('[MEDIA] Serving URL:', fileUrl)
-    
     try {
-      const response = await net.fetch(fileUrl, {
-        headers: request.headers, // pasar Range headers para seeking
+      const encodedPath = request.url.slice('media://'.length)
+      const rawPath = decodeURIComponent(encodedPath)
+      console.log('[MEDIA] Sirviendo:', rawPath)
+
+      if (!existsSync(rawPath)) {
+        console.error('[MEDIA] Archivo no existe:', rawPath)
+        return new Response('Archivo no encontrado', { status: 404 })
+      }
+
+      const stat = statSync(rawPath)
+      const total = stat.size
+
+      // Soporte para Range requests (necesario para seeking en video.js)
+      const rangeHeader = request.headers.get('range')
+      if (rangeHeader) {
+        const [startStr, endStr] = rangeHeader.replace('bytes=', '').split('-')
+        const start = parseInt(startStr, 10)
+        const end = endStr ? parseInt(endStr, 10) : total - 1
+        const chunkSize = end - start + 1
+
+        const stream = createReadStream(rawPath, { start, end })
+        return new Response(stream as any, {
+          status: 206,
+          headers: {
+            'Content-Range': `bytes ${start}-${end}/${total}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': String(chunkSize),
+            'Content-Type': getMimeType(rawPath),
+          }
+        })
+      }
+
+      // Sin Range — servir el archivo completo
+      const stream = createReadStream(rawPath)
+      return new Response(stream as any, {
+        status: 200,
+        headers: {
+          'Content-Length': String(total),
+          'Content-Type': getMimeType(rawPath),
+          'Accept-Ranges': 'bytes',
+        }
       })
-      return response
     } catch (err: any) {
-      console.error('[MEDIA] Error sirviendo archivo:', err.message)
-      return new Response('Archivo no encontrado', { status: 404 })
+      console.error('[MEDIA] Error:', err.message)
+      return new Response('Error interno', { status: 500 })
     }
   })
 
