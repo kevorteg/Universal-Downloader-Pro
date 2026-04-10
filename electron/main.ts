@@ -130,6 +130,26 @@ const binPath = isPackaged
 
 const YT_DLP_EXE = existsSync(join(binPath, 'yt-dlp.exe')) ? join(binPath, 'yt-dlp.exe') : 'yt-dlp';
 const FFMPEG_LOCATION = existsSync(join(binPath, 'ffmpeg.exe')) ? binPath : undefined;
+const VERSES_FILE = join(__dirname, 'verses.json');
+
+// --- SPIRITUAL SYSTEM ---
+function showDailyVerse() {
+  try {
+    const raw = readFileSync(VERSES_FILE, 'utf-8');
+    const verses = JSON.parse(raw);
+    const verse = verses[Math.floor(Math.random() * verses.length)];
+    
+    if (Notification.isSupported()) {
+      new Notification({
+        title: '📖 Versículo del día',
+        body: `"${verse.text}" — ${verse.ref}`,
+        silent: true
+      }).show();
+    }
+  } catch (err) {
+    console.error('Error showing verse:', err);
+  }
+}
 
 // ─────────────────────────────────────────
 // Create main window
@@ -158,6 +178,9 @@ function createWindow() {
   } else {
     mainWindow.loadFile(join(__dirname, '../dist/index.html'))
   }
+
+  // Activar sistema espiritual con delay
+  setTimeout(showDailyVerse, 5000);
 
   // Minimize to tray instead of closing
   mainWindow.on('close', (event) => {
@@ -369,6 +392,50 @@ ipcMain.handle('video:getFormats', async (event, url: string) => {
       resolve({ success: false, error: err.message })
     })
   })
+})
+async function performSearch(query: string) {
+  return new Promise<any[]>((resolve) => {
+    const args = ['-J', '--no-playlist', '--flat-playlist', `ytsearch12:${query}`]
+    const proc = spawn(YT_DLP_EXE, args, { 
+      shell: true,
+      windowsVerbatimArguments: true
+    })
+    
+    let output = ''
+    proc.stdout.on('data', (data) => { output += data.toString() })
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        try {
+          const info = JSON.parse(output)
+          const entries = info.entries || []
+          resolve(entries.map((e: any) => ({
+            title: e.title,
+            url: e.url || e.webpage_url,
+            thumbnail: e.thumbnail || (e.thumbnails && e.thumbnails[0]?.url),
+            year: e.upload_date ? e.upload_date.substring(0, 4) : '2024',
+            duration: e.duration
+          })))
+        } catch (e) { resolve([]) }
+      } else { resolve([]) }
+    })
+    proc.on('error', () => { resolve([]) })
+  })
+}
+
+ipcMain.handle('video:searchMovies', async (_event, query: string) => {
+  return await performSearch(query);
+})
+
+ipcMain.handle('video:search', async (_event, query: string) => {
+  return await performSearch(query);
+})
+
+ipcMain.handle('video:getMovieMagnets', async (_event, url: string) => {
+  if (url.startsWith('magnet:') || url.includes('youtube.com') || url.includes('youtu.be')) {
+    return url;
+  }
+  return await getPelisMagnet(url);
 })
 
 ipcMain.handle('download:start', async (event, options: {
@@ -772,12 +839,10 @@ ipcMain.handle('pelis:search', async (_event, query: string) => {
   }
 })
 
-ipcMain.handle('pelis:getMagnet', async (_event, url: string) => {
+async function getPelisMagnet(url: string) {
   try {
-    // Extract slug: https://pelispanda.org/pelicula/batman-ano-uno -> batman-ano-uno
     const parts = url.split('/')
     const slug = parts[parts.length - 1] || parts[parts.length - 2]
-    
     if (!slug) return null
 
     const apiUrl = `https://pelispanda.org/wp-json/wpreact/v1/movie/${slug}`
@@ -791,27 +856,25 @@ ipcMain.handle('pelis:getMagnet', async (_event, url: string) => {
     const movieData = await response.json()
 
     if (!movieData.downloads || !Array.isArray(movieData.downloads) || movieData.downloads.length === 0) {
-      // Fallback to HTML scraping if API fails or has no downloads
       const htmlResponse = await fetch(url)
       const html = await htmlResponse.text()
       const magnetMatch = html.match(/magnet:\?xt=urn:btih:[a-zA-Z0-9%&=._-]+/i)
       return magnetMatch ? magnetMatch[0] : null
     }
 
-    // Pick the first available download (usually best quality)
     let magnet = movieData.downloads[0].download_link
-    
-    // Fix site bug: sometimes links are concatenated with a space
     if (magnet && magnet.includes(' ')) {
       const links = magnet.split(' ').filter((l: string) => l.startsWith('magnet:'))
-      magnet = links[links.length - 1] // Take the last one as per research
+      magnet = links[links.length - 1]
     }
-
     return magnet
   } catch (error) {
-    console.error('Magnet error:', error)
     return null
   }
+}
+
+ipcMain.handle('pelis:getMagnet', async (_event, url: string) => {
+  return await getPelisMagnet(url);
 })
 
 // ─────────────────────────────────────────

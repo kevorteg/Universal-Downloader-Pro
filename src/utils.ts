@@ -17,7 +17,9 @@ export function loadSettings(): AppSettings {
     defaultAudioOnly: false,
     autoStartOnBoot: false,
     customTrackers: [],
-    highSpeedMode: false
+    highSpeedMode: false,
+    licenseKey: '',
+    showDailyVerse: true
   }
 }
 

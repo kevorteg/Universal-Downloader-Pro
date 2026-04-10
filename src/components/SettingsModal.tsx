@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { AppSettings } from '../types'
-import { Settings, Folder, Save, X, Globe, UserCheck, HardDrive, Share2 } from 'lucide-react'
+import { Settings, Folder, Save, X, Globe, UserCheck, HardDrive, Share2, Crown } from 'lucide-react'
 
 interface SettingsModalProps {
   settings: AppSettings
@@ -140,6 +140,44 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
               }}
             />
             <p className="text-[9px] text-muted">Añade más enlaces para mejorar la velocidad y disponibilidad de tus Torrents.</p>
+          </div>
+
+          <div style={{ height: 1, background: 'var(--border)', margin: '16px 0' }} />
+
+          {/* PRO & SPIRITUAL SECTION */}
+          <div className="space-y-4">
+            <label className="text-[11px] uppercase tracking-wider font-bold text-fuchsia-400 flex items-center gap-2">
+              <Crown size={12} />
+              Sección Pro (Monetización)
+            </label>
+            
+            <div className="space-y-2">
+              <div className="text-[12px] text-white/80">Clave de Licencia</div>
+              <input
+                type="password"
+                className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-[12px] text-white focus:border-fuchsia-500 outline-none"
+                placeholder="XXXX-XXXX-XXXX-XXXX"
+                value={form.licenseKey}
+                onChange={e => setForm(prev => ({ ...prev, licenseKey: e.target.value }))}
+              />
+              <p className="text-[9px] text-muted">Ingresa tu clave para desbloquear todas las funciones premium.</p>
+            </div>
+
+            <div className="flex items-center justify-between bg-fuchsia-950/20 p-3 rounded border border-fuchsia-500/10">
+              <div className="flex items-center gap-2">
+                <Globe size={14} className="text-fuchsia-400" />
+                <div>
+                  <div className="text-[12px] font-medium text-white">Versículo del día</div>
+                  <div className="text-[10px] text-muted">Recibe una bendición cada vez que abras la app.</div>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                className="accent-fuchsia-500 w-4 h-4"
+                checked={form.showDailyVerse}
+                onChange={e => setForm(prev => ({ ...prev, showDailyVerse: e.target.checked }))}
+              />
+            </div>
           </div>
         </div>
 

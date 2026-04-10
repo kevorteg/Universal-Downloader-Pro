@@ -80,4 +80,6 @@ export interface AppSettings {
   autoStartOnBoot: boolean
   customTrackers: string[]
   highSpeedMode: boolean
+  licenseKey: string
+  showDailyVerse: boolean
 }
