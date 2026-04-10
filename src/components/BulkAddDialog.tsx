@@ -100,7 +100,7 @@ export default function BulkAddDialog({ isOpen, onClose, settings, onAddBulk }: 
                   {isOverLimit && (
                     <button 
                       type="button"
-                      onClick={() => window.open('https://github.com/sponsors/kevorteg', '_blank')}
+                      onClick={() => window.open('https://universal-downloader.lemonsqueezy.com/checkout/buy/948c454e-0a9d-4f16-b43d-5b932cd523c0', '_blank')}
                       className="mt-3 bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-[11px] font-bold py-1.5 px-4 rounded-lg transition-all flex items-center gap-2"
                     >
                       <Sparkles size={12} />

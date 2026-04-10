@@ -222,14 +222,22 @@ function DownloadRow({
           paddingRight: 8
         }}
       >
-        <span style={{ flexShrink: 0, width: 14, display: 'flex', justifyContent: 'center' }}>
-          {item.isTorrent 
-            ? <Share2 size={12} style={{ color: '#c026d3' }} /> 
-            : item.audioOnly 
-              ? <Music size={12} style={{ color: '#e879f9' }} /> 
-              : <Video size={12} style={{ color: '#3b82f6' }} />
-          }
-        </span>
+        <div style={{ flexShrink: 0, width: 44, height: 28, borderRadius: 6, overflow: 'hidden', background: '#000', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {item.thumbnail ? (
+            <img 
+              src={item.thumbnail} 
+              className="w-full h-full object-cover transition-opacity duration-300"
+              alt=""
+              onError={(e) => (e.currentTarget.style.display = 'none')}
+            />
+          ) : (
+            item.isTorrent 
+              ? <Share2 size={12} style={{ color: '#c026d3' }} /> 
+              : item.audioOnly 
+                ? <Music size={12} style={{ color: '#e879f9' }} /> 
+                : <Video size={12} style={{ color: '#3b82f6' }} />
+          )}
+        </div>
         <span
           style={{
             overflow: 'hidden',

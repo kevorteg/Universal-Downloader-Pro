@@ -29,6 +29,7 @@ export default function AddDialog({
   const [customDir, setCustomDir] = useState<string>(settings.outputDir)
   const [formats, setFormats] = useState<VideoFormat[]>([])
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [showProWarning, setShowProWarning] = useState(false)
 
   useEffect(() => {
     setUrl(initialUrl)
@@ -74,12 +75,14 @@ export default function AddDialog({
       <div className="bg-[#1e1e1e] border border-white/10 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="px-5 py-4 border-b border-white/10 flex justify-between items-center bg-black/20">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Download size={18} className="text-fuchsia-500" />
+        <div className="px-5 py-4 border-b border-white/10 flex justify-between items-center bg-gradient-to-r from-black/40 to-fuchsia-950/20 backdrop-blur-sm">
+          <h2 className="text-lg font-bold text-white flex items-center gap-3">
+            <div className="p-1.5 bg-fuchsia-600/20 rounded-lg shadow-[0_0_10px_rgba(192,38,211,0.2)]">
+              <Download size={18} className="text-fuchsia-400" />
+            </div>
             Nueva Descarga
           </h2>
-          <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-md transition-colors text-white/60 hover:text-white">
+          <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-full transition-all text-white/40 hover:text-white hover:rotate-90">
             <X size={18} />
           </button>
         </div>
@@ -108,25 +111,39 @@ export default function AddDialog({
               placeholder="https://..."
             />
             {url && url.includes('list=') && (
-              <div className="mt-2 p-3 bg-fuchsia-600/10 border border-fuchsia-500/20 rounded-lg flex items-center justify-between animate-in slide-in-from-top-1">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={14} className="text-fuchsia-400" />
-                  <span className="text-[10px] font-bold text-white/70">LISTA DE REPRODUCCIÓN</span>
+              <div className="space-y-2">
+                <div className="mt-2 p-3 bg-fuchsia-600/10 border border-fuchsia-500/20 rounded-lg flex items-center justify-between animate-in slide-in-from-top-1">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={14} className="text-fuchsia-400" />
+                    <span className="text-[10px] font-bold text-white/70">LISTA DE REPRODUCCIÓN</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isPro) {
+                        onExpand?.(url)
+                      } else {
+                        setShowProWarning(true)
+                      }
+                    }}
+                    className={`${isPro ? 'bg-fuchsia-600 hover:bg-fuchsia-500' : 'bg-white/10 text-white/40'} text-white text-[9px] font-bold px-3 py-1 rounded transition-all flex items-center gap-1.5`}
+                  >
+                    {!isPro && <Crown size={10} />}
+                    {isPro ? 'EXPANDIR PRO' : 'FUNCIÓN PRO'}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isPro) {
-                      onExpand?.(url)
-                    } else {
-                      alert("La expansión de listas es una función Pro. Ve a Ajustes para activar tu licencia.")
-                    }
-                  }}
-                  className={`${isPro ? 'bg-fuchsia-600 hover:bg-fuchsia-500' : 'bg-white/10 text-white/40 cursor-not-allowed'} text-white text-[9px] font-bold px-3 py-1 rounded transition-all flex items-center gap-1.5`}
-                >
-                  {!isPro && <Crown size={10} />}
-                  {isPro ? 'EXPANDIR PRO' : 'FUNCIÓN PRO'}
-                </button>
+                
+                {showProWarning && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg animate-in fade-in slide-in-from-top-2 flex flex-col gap-2">
+                    <p className="text-[10px] text-red-400 font-medium">La expansión de listas es una función Pro.</p>
+                    <button 
+                      onClick={() => window.open('https://universal-downloader.lemonsqueezy.com/checkout/buy/948c454e-0a9d-4f16-b43d-5b932cd523c0', '_blank')}
+                      className="text-[9px] font-extrabold text-white bg-red-600/40 hover:bg-red-600/60 py-1 rounded transition-colors uppercase"
+                    >
+                      Actualizar ahora
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -891,6 +891,20 @@ ipcMain.handle('pelis:search', async (_event, query: string) => {
 
 // License Handlers
 ipcMain.handle('app:validateLicense', async (_event, key: string) => {
+  // Developer Bypass Key
+  if (key === 'UNIVERSAL-PRO-DEV-2024') {
+    const info = {
+      key,
+      instanceId: 'dev_instance_' + Math.random().toString(36).substring(7),
+      user: 'Developer Master'
+    };
+    await LicenseManager.save(info);
+    if (mainWindow) {
+      mainWindow.webContents.send('app:licenseUpdated', { isPro: true, user: info.user });
+    }
+    return { valid: true, user: info.user };
+  }
+
   try {
     const response = await fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
       method: 'POST',

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { AppSettings } from '../types'
-import { Settings, Folder, Save, X, Globe, UserCheck, HardDrive, Share2, Crown, Sparkles } from 'lucide-react'
+import { Settings, Folder, Save, X, Globe, UserCheck, HardDrive, Share2, Crown, Sparkles, AlertCircle } from 'lucide-react'
 
 interface SettingsModalProps {
   settings: AppSettings
@@ -12,6 +12,10 @@ interface SettingsModalProps {
 
 export default function SettingsModal({ settings, onSave, onClose, isOpen, onLicenseVerified }: SettingsModalProps) {
   const [form, setForm] = useState<AppSettings>({ ...settings })
+  const [validationStatus, setValidationStatus] = useState<{
+    type: 'success' | 'error' | 'loading'
+    message: string
+  } | null>(null)
 
   useEffect(() => {
     const loadLicense = async () => {
@@ -24,6 +28,13 @@ export default function SettingsModal({ settings, onSave, onClose, isOpen, onLic
     };
     loadLicense();
   }, [isOpen]);
+
+  useEffect(() => {
+    if (validationStatus && validationStatus.type !== 'loading') {
+      const timer = setTimeout(() => setValidationStatus(null), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [validationStatus]);
 
   const handlePickFolder = async () => {
     if (window.electronAPI) {
@@ -160,54 +171,87 @@ export default function SettingsModal({ settings, onSave, onClose, isOpen, onLic
 
           {/* PRO & SPIRITUAL SECTION */}
           <div className="space-y-4">
-            <label className="text-[11px] uppercase tracking-wider font-bold text-fuchsia-400 flex items-center gap-2">
-              <Crown size={12} />
-              Sección Pro
+            <label className="text-[11px] uppercase tracking-wider font-extrabold text-fuchsia-400 flex items-center gap-2 group cursor-default">
+              <Crown size={12} className="group-hover:rotate-12 transition-transform duration-300" />
+              Suscripción Pro
             </label>
             
-            <div className="space-y-3 p-4 bg-fuchsia-600/5 rounded-xl border border-fuchsia-500/10 transition-all">
+            <div className={`space-y-4 p-5 rounded-2xl border transition-all duration-500 overflow-hidden relative ${
+              form.licenseKey 
+                ? 'bg-gradient-to-br from-fuchsia-600/10 to-purple-800/20 border-fuchsia-500/30 shadow-[0_0_20px_rgba(232,121,249,0.1)]' 
+                : 'bg-white/5 border-white/5 shadow-inner'
+            }`}>
+              {form.licenseKey && (
+                <div className="absolute top-0 right-0 p-1">
+                   <div className="bg-fuchsia-500/20 text-fuchsia-300 text-[8px] px-2 py-0.5 rounded-bl-lg font-black uppercase tracking-widest">Premium Active</div>
+                </div>
+              )}
               <div className="flex justify-between items-center">
-                <span className="text-[12px] font-bold text-white">Estado de Licencia</span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${form.licenseKey ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/10 text-white/40'}`}>
-                  {form.licenseKey ? 'ACTIVADA' : 'VERSIÓN GRATUITA'}
+                <span className="text-[13px] font-bold text-white/90">Estatus de Cuenta</span>
+                <span className={`text-[10px] font-black px-3 py-1 rounded-lg transition-all shadow-sm ${form.licenseKey ? 'bg-fuchsia-500 text-white animate-pulse' : 'bg-white/10 text-white/40'}`}>
+                  {form.licenseKey ? 'UNIVERSAL PRO' : 'VERSIÓN LITE'}
                 </span>
               </div>
               
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white focus:border-fuchsia-500 outline-none font-mono"
-                  placeholder="XXXX-XXXX-XXXX-XXXX"
-                  value={form.licenseKey}
-                  onChange={e => setForm(prev => ({ ...prev, licenseKey: e.target.value }))}
-                />
-                <button 
-                  className="btn btn-secondary px-4 text-[11px] font-bold"
-                  onClick={async () => {
-                    try {
-                      if (window.electronAPI) {
-                         const res = await window.electronAPI.validateLicense(form.licenseKey)
-                         if (res.valid) {
-                           alert(`¡Licencia válida! Bienvenido, ${res.user || 'Usuario'}`)
-                           if (onLicenseVerified) onLicenseVerified(res.user || 'Usuario')
-                         } else {
-                           alert(`Error: ${res.error || 'Clave de licencia inválida'}`)
-                         }
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    disabled={validationStatus?.type === 'loading'}
+                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white focus:border-fuchsia-500 outline-none font-mono disabled:opacity-50"
+                    placeholder="XXXX-XXXX-XXXX-XXXX"
+                    value={form.licenseKey}
+                    onChange={e => setForm(prev => ({ ...prev, licenseKey: e.target.value }))}
+                  />
+                  <button 
+                    disabled={!form.licenseKey || validationStatus?.type === 'loading'}
+                    className="btn btn-secondary px-4 text-[11px] font-bold disabled:opacity-50"
+                    onClick={async () => {
+                      setValidationStatus({ type: 'loading', message: 'Validando...' })
+                      try {
+                        if (window.electronAPI) {
+                           const res = await window.electronAPI.validateLicense(form.licenseKey)
+                           if (res.valid) {
+                             setValidationStatus({ 
+                               type: 'success', 
+                               message: `¡Licencia activa! Bienvenido, ${res.user || 'Pro User'}` 
+                             })
+                             if (onLicenseVerified) onLicenseVerified(res.user || 'Usuario')
+                           } else {
+                             setValidationStatus({ 
+                               type: 'error', 
+                               message: res.error || 'Clave inválida' 
+                             })
+                           }
+                        }
+                      } catch (err) {
+                        setValidationStatus({ 
+                          type: 'error', 
+                          message: "Error de conexión." 
+                        })
                       }
-                    } catch (err) {
-                      console.error("Error validating license:", err)
-                      alert("Hubo un problema al validar la licencia. Verifica tu conexión.")
-                    }
-                  }}
-                >
-                  Verificar
-                </button>
-              </div>
+                    }}
+                  >
+                    {validationStatus?.type === 'loading' ? '...' : 'Verificar'}
+                  </button>
+                </div>
+
+                {validationStatus && (
+                  <div className={`flex items-center gap-2 p-2 rounded-lg text-[11px] animate-in fade-in slide-in-from-top-2 duration-300 ${
+                    validationStatus.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 
+                    validationStatus.type === 'error' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 
+                    'bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20'
+                  }`}>
+                    {validationStatus.type === 'success' ? <UserCheck size={14} /> : 
+                     validationStatus.type === 'error' ? <AlertCircle size={14} /> : 
+                     <Sparkles size={14} className="animate-spin" />}
+                    <span className="font-medium">{validationStatus.message}</span>
+                  </div>
+                )}
 
               {!form.licenseKey && (
                 <div className="pt-2">
                   <button 
-                    onClick={() => window.open('https://github.com/sponsors/kevorteg', '_blank')}
+                    onClick={() => window.open('https://universal-downloader.lemonsqueezy.com/checkout/buy/948c454e-0a9d-4f16-b43d-5b932cd523c0', '_blank')}
                     className="w-full bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white text-[11px] font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-fuchsia-900/20"
                   >
                     <Sparkles size={12} />

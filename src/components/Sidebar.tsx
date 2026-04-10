@@ -146,7 +146,7 @@ export default function Sidebar({ downloads, filter, onFilterChange, onOpenSetti
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-          <Crown size={14} className={isPro ? "text-green-400" : "text-fuchsia-400 group-hover:scale-110 transition-transform"} />
+          <Crown size={14} className={isPro ? "text-yellow-500 fill-yellow-500" : "text-fuchsia-400 group-hover:scale-110 transition-transform"} />
           <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', letterSpacing: 0.5 }}>
             {isPro ? 'Sección Pro' : 'Universal Pro'}
           </span>
@@ -167,6 +167,34 @@ export default function Sidebar({ downloads, filter, onFilterChange, onOpenSetti
         <Layers size={13} className="text-fuchsia-400" />
         Importación Masiva
       </button>
+
+      {/* App Logo & Version Status */}
+      <div className="p-4 flex flex-col gap-1">
+        <div 
+          className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity active:scale-95 duration-200"
+          onClick={() => window.open('https://universal-downloader-pro.vercel.app/', '_blank')}
+        >
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-fuchsia-600 to-purple-600 flex items-center justify-center shadow-lg shadow-fuchsia-500/10">
+            <Download size={18} className="text-white" />
+          </div>
+          <span className="font-bold text-sm tracking-tight text-white/90">UD <span className="text-fuchsia-500">Pro</span></span>
+        </div>
+        
+        <div className="mt-3 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/5 flex items-center justify-between group overflow-hidden relative">
+          <div className="flex items-center gap-2 relative z-10">
+             {isPro ? (
+               <Crown size={12} className="text-yellow-500 fill-yellow-500 animate-pulse" />
+             ) : (
+               <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+             )}
+             <span className={`text-[9px] font-bold uppercase tracking-wider ${isPro ? 'text-yellow-500' : 'text-white/40'}`}>
+                {isPro ? 'Licencia Pro' : 'Free Tier'}
+             </span>
+          </div>
+          <span className="text-[8px] font-mono text-white/20 relative z-10">v2.0.4</span>
+          {isPro && <div className="absolute inset-0 bg-yellow-500/5 blur-xl group-hover:bg-yellow-500/10 transition-colors" />}
+        </div>
+      </div>
 
       {/* Footer info */}
       <div

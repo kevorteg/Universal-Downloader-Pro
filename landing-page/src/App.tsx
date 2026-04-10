@@ -1,12 +1,12 @@
 import { motion } from 'framer-motion'
-import { 
-  Download, 
-  Crown, 
-  Sparkles, 
-  CheckCircle2, 
-  ListMusic, 
-  Zap, 
-  ShieldCheck, 
+import {
+  Download,
+  Crown,
+  Sparkles,
+  CheckCircle2,
+  ListMusic,
+  Zap,
+  ShieldCheck,
   ChevronRight,
   Layers,
   Globe
@@ -62,7 +62,7 @@ export default function App() {
             </div>
             <span className="font-bold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">UD Pro</span>
           </div>
-          
+
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/50">
             <a href="#features" className="hover:text-white transition-colors">Características</a>
             <a href="#pricing" className="hover:text-white transition-colors">Precios</a>
@@ -80,9 +80,9 @@ export default function App() {
         <div className="container relative">
           <div className="absolute -top-20 -left-20 w-64 h-64 bg-fuchsia-600/20 blur-[100px] rounded-full" />
           <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-purple-600/20 blur-[100px] rounded-full" />
-          
+
           <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
@@ -96,7 +96,7 @@ export default function App() {
                 <span className="text-gradient">Límites.</span>
               </h1>
               <p className="text-xl text-white/50 mb-10 max-w-lg leading-relaxed font-medium">
-                La herramienta definitiva para coleccionistas de medios. 
+                La herramienta definitiva para coleccionistas de medios.
                 Rápida, privada y ridículamente potente.
               </p>
               <div className="flex flex-wrap gap-5">
@@ -108,17 +108,17 @@ export default function App() {
                   Explorar Pro
                 </a>
               </div>
-              
+
               <div className="mt-12 flex items-center gap-6">
                 <div className="flex -space-x-3">
-                  {[1,2,3,4].map(i => (
+                  {[1, 2, 3, 4].map(i => (
                     <div key={i} className="w-10 h-10 rounded-full border-2 border-zinc-950 bg-zinc-800 flex items-center justify-center overflow-hidden">
                       <img src={`https://i.pravatar.cc/100?u=${i}`} alt="User" />
                     </div>
                   ))}
                 </div>
                 <div className="text-sm font-medium">
-                  <span className="text-white">5,000+</span> <span className="text-white/40">usuarios activos</span>
+                  <span className="text-white">2,000+</span> <span className="text-white/40">usuarios activos</span>
                 </div>
               </div>
             </motion.div>
@@ -131,12 +131,12 @@ export default function App() {
             >
               <div className="absolute inset-0 bg-gradient-to-tr from-fuchsia-500/20 to-transparent blur-3xl rounded-full" />
               <div className="relative glass-premium rounded-[2.5rem] p-4 animate-float">
-                <img 
-                  src="/mockup.png" 
-                  alt="UD Pro Interface" 
+                <img
+                  src="/mockup.png"
+                  alt="UD Pro Interface"
                   className="rounded-[1.5rem] w-full h-auto shadow-2xl"
                 />
-                
+
                 {/* Floating elements */}
                 <div className="absolute -top-6 -right-6 glass p-4 rounded-2xl shadow-xl animate-float [animation-delay:-2s]">
                   <div className="flex items-center gap-3">
@@ -195,7 +195,7 @@ export default function App() {
             <h2 className="text-4xl lg:text-5xl font-bold mb-6 tracking-tight">Potencia sin complicaciones</h2>
             <p className="text-lg text-white/40 font-medium">Todo lo que necesitas para gestionar tu contenido multimedia en un solo lugar.</p>
           </div>
-          
+
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((f, i) => (
               <motion.div
@@ -261,7 +261,7 @@ export default function App() {
                 <div className="absolute top-0 right-0 p-8 opacity-10">
                   <Crown size={120} className="text-fuchsia-500" />
                 </div>
-                
+
                 <div className="mb-8">
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-400 text-[11px] font-bold mb-4 border border-fuchsia-500/20">
                     <Sparkles size={12} /> RECOMENDADO
@@ -292,7 +292,7 @@ export default function App() {
                   Obtener UD Pro
                   <Crown className="w-5 h-5 group-hover:rotate-12 transition-transform" />
                 </a>
-                
+
                 <p className="text-center mt-6 text-xs text-white/30 font-bold uppercase tracking-widest">
                   Licencia de por vida para 2 dispositivos
                 </p>
@@ -312,11 +312,11 @@ export default function App() {
             className="relative p-20 rounded-[3.5rem] bg-gradient-to-br from-fuchsia-600/10 to-purple-600/10 border border-fuchsia-500/20 overflow-hidden text-center"
           >
             <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_transparent_0%,_#050506_100%)] opacity-40" />
-            
+
             <div className="relative z-10">
               <h2 className="text-5xl lg:text-6xl font-bold mb-8 tracking-tighter">¿Listo para subir de nivel?</h2>
               <p className="text-xl text-white/40 mb-12 max-w-2xl mx-auto font-medium leading-relaxed">
-                Descarga UD Pro hoy y empieza a construir tu biblioteca digital 
+                Descarga UD Pro hoy y empieza a construir tu biblioteca digital
                 con la máxima calidad y velocidad.
               </p>
               <div className="flex flex-wrap justify-center gap-6">
@@ -349,7 +349,7 @@ export default function App() {
                 Desarrollado con ❤️ para la comunidad Pro.
               </p>
             </div>
-            
+
             <div>
               <h4 className="text-sm font-bold uppercase tracking-widest mb-6 text-white/20">Producto</h4>
               <ul className="space-y-4 text-sm font-medium text-white/50">
@@ -368,7 +368,7 @@ export default function App() {
               </ul>
             </div>
           </div>
-          
+
           <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 text-[11px] text-white/20 uppercase tracking-widest font-bold">
             <div>© 2024 UD Pro. Todos los derechos reservados.</div>
             <div className="flex gap-10">
@@ -378,7 +378,7 @@ export default function App() {
             </div>
           </div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             className="mt-20 p-10 glass-premium rounded-[2.5rem] border border-fuchsia-500/10 text-center relative overflow-hidden group"

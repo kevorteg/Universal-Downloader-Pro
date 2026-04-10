@@ -71,7 +71,7 @@ export default function SearchTab({ onAddDownload, isPro }: SearchTabProps) {
         data = await window.electronAPI.searchMovies(query)
       }
 
-      setResults(data)
+      setResults(isPro ? data : data.slice(0, 5))
       if (isLoadMore) setSearchLimit(limit)
       
       if (data.length === 0) setError('No se encontraron resultados.')
@@ -185,25 +185,20 @@ export default function SearchTab({ onAddDownload, isPro }: SearchTabProps) {
 
       {/* Results Grid */}
       <div className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar relative">
-        {!isPro && (
-          <div className="absolute inset-0 z-[60] flex items-center justify-center p-6 backdrop-blur-[2px] bg-black/40">
+
+        {activeTab === 'movie' && !isPro && (
+          <div className="absolute inset-0 z-[60] flex items-center justify-center p-6 backdrop-blur-[4px] bg-black/60">
             <div className="max-w-md w-full bg-[#1a1a1a] border border-fuchsia-500/20 rounded-3xl p-8 text-center shadow-2xl animate-in zoom-in-95 duration-300">
               <div className="w-16 h-16 bg-fuchsia-600/20 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-fuchsia-500/30">
                 <Crown size={32} className="text-fuchsia-400" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-3">Buscador Interno Pro</h3>
+              <h3 className="text-xl font-bold text-white mb-3">Buscador de Películas Pro</h3>
               <p className="text-white/60 text-sm mb-8 leading-relaxed">
-                El buscador de películas, música y autocompletado es una función exclusiva de **Universal Pro**. 
-                Activa tu licencia para disfrutar de descargas ilimitadas sin salir de la app.
+                El acceso a servidores de películas premium y descarga de torrents es una función exclusiva de **Universal Pro**.
               </p>
               <button 
-                onClick={() => {
-                  // This is tricky since we don't have onOpenSettings here, 
-                  // but we can assume the user will go to settings via the sidebar.
-                  // For now, let's just show a tip.
-                  alert("Ve a Ajustes -> Sección Pro para activar tu licencia.")
-                }}
                 className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-fuchsia-900/20"
+                onClick={() => window.open('https://universal-downloader-pro.vercel.app/', '_blank')}
               >
                 Activar Ahora
               </button>
@@ -315,6 +310,23 @@ export default function SearchTab({ onAddDownload, isPro }: SearchTabProps) {
                     )}
                 </button>
             </div>
+        )}
+
+        {results.length > 0 && !isPro && (
+          <div 
+            onClick={() => window.open('https://universal-downloader-pro.vercel.app/', '_blank')}
+            className="mt-12 mb-8 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500 cursor-pointer group"
+          >
+             <div className="p-8 bg-gradient-to-r from-fuchsia-600/10 to-purple-600/10 hover:from-fuchsia-600/20 hover:to-purple-600/20 rounded-3xl border border-fuchsia-500/20 group-hover:border-fuchsia-500/40 text-center max-w-xl transition-all">
+                <Crown className="mx-auto mb-3 text-fuchsia-400 group-hover:scale-110 transition-transform" size={28} />
+                <h4 className="text-white font-bold text-base mb-2">¿Buscas resultados ilimitados?</h4>
+                <p className="text-white/50 text-xs leading-relaxed">
+                  La versión gratuita está limitada a los primeros 5 resultados. 
+                  <br />
+                  <span className="text-fuchsia-400 font-bold mt-2 inline-block">Haz clic aquí para desbloquear Universal Pro y busca lo que quieras.</span>
+                </p>
+             </div>
+          </div>
         )}
       </div>
     </div>
