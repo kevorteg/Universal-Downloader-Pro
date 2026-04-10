@@ -345,7 +345,7 @@ export default function App() {
                 downloads={filteredDownloads}
                 nowPlaying={nowPlaying}
                 onPlay={(item) => {
-                  const filePath = [item.outputDir, item.filename]
+                  const filePath = item.path || [item.outputDir, item.filename]
                     .join('/').replace(/\\/g, '/').replace(/\/\//g, '/')
                   setNowPlaying({ path: filePath, title: item.title || item.filename })
                 }}
@@ -358,7 +358,7 @@ export default function App() {
                 onContextMenu={handleContextMenu}
                 onDoubleClick={(item) => window.electronAPI?.openFolder(item.outputDir)}
                 onPlay={(item) => {
-                  const filePath = [item.outputDir, item.filename]
+                  const filePath = item.path || [item.outputDir, item.filename]
                     .join('/').replace(/\\/g, '/').replace(/\/\//g, '/')
                   setNowPlaying({ path: filePath, title: item.title || item.filename })
                   setFilter('player')

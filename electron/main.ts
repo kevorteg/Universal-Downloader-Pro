@@ -103,6 +103,9 @@ class HistoryManager {
           if (!existsSync(item.path)) {
             item.path = item.path.replace(/\.[a-zA-Z0-9]+$/, '.mp4')
           }
+          if (item.filename) {
+            item.filename = item.path.split(/[/\\]/).pop() || item.filename
+          }
         }
 
         if (item.status === 'downloading' || item.status === 'queued') {
