@@ -289,18 +289,6 @@ function createWindow() {
     }
   })
 
-  // Permitir que localhost en dev acceda al protocolo media://
-  if (isDev) {
-    mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-      callback({
-        responseHeaders: {
-          ...details.responseHeaders,
-          'Access-Control-Allow-Origin': ['*'],
-        }
-      })
-    })
-  }
-
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
     // mainWindow.webContents.openDevTools()
@@ -1104,9 +1092,9 @@ app.whenReady().then(async () => {
   // Register the protocol handler for media://
   protocol.handle('media', async (request) => {
     try {
-      const encodedPath = request.url.slice('media://'.length)
-      const rawPath = decodeURIComponent(encodedPath)
-      console.log('[MEDIA] Sirviendo:', rawPath)
+      const rawPath = request.url.slice('media://'.length).replace(/%20/g, ' ')
+      console.log('[MEDIA] rawPath:', rawPath)
+      console.log('[MEDIA] exists:', existsSync(rawPath))
 
       if (!existsSync(rawPath)) {
         console.error('[MEDIA] Archivo no existe:', rawPath)

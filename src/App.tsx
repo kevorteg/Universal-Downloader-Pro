@@ -533,8 +533,8 @@ function PlayerTab({ downloads, nowPlaying, onPlay }: {
       {/* Video Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {nowPlaying ? (() => {
-          // Pass the fully URL-encoded raw path to the custom protocol
-          const mediaUrl = `media://${encodeURIComponent(nowPlaying.path)}`
+          // DESPUÉS — solo codifica caracteres especiales problemáticos, no los separadores
+          const mediaUrl = `media://${nowPlaying.path.replace(/ /g, '%20').replace(/\\/g, '/')}`
           console.log('[Player] media URL:', mediaUrl)
           return (
             <VideoPlayer
