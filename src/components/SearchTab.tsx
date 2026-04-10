@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Search, Download, Loader2, Film, Calendar, Youtube, User, ChevronDown, ListPlus, Music } from 'lucide-react'
+import { Search, Download, Loader2, Film, Calendar, Youtube, User, ChevronDown, ListPlus, Music, Crown } from 'lucide-react'
 import { SearchResult } from '../types'
 
 interface SearchTabProps {
   onAddDownload: (url: string, type: 'video' | 'audio' | 'torrent', title?: string) => void
+  isPro: boolean
 }
 
-export default function SearchTab({ onAddDownload }: SearchTabProps) {
+export default function SearchTab({ onAddDownload, isPro }: SearchTabProps) {
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -184,6 +185,32 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
 
       {/* Results Grid */}
       <div className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar relative">
+        {!isPro && (
+          <div className="absolute inset-0 z-[60] flex items-center justify-center p-6 backdrop-blur-[2px] bg-black/40">
+            <div className="max-w-md w-full bg-[#1a1a1a] border border-fuchsia-500/20 rounded-3xl p-8 text-center shadow-2xl animate-in zoom-in-95 duration-300">
+              <div className="w-16 h-16 bg-fuchsia-600/20 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-fuchsia-500/30">
+                <Crown size={32} className="text-fuchsia-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-3">Buscador Interno Pro</h3>
+              <p className="text-white/60 text-sm mb-8 leading-relaxed">
+                El buscador de películas, música y autocompletado es una función exclusiva de **Universal Pro**. 
+                Activa tu licencia para disfrutar de descargas ilimitadas sin salir de la app.
+              </p>
+              <button 
+                onClick={() => {
+                  // This is tricky since we don't have onOpenSettings here, 
+                  // but we can assume the user will go to settings via the sidebar.
+                  // For now, let's just show a tip.
+                  alert("Ve a Ajustes -> Sección Pro para activar tu licencia.")
+                }}
+                className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-fuchsia-900/20"
+              >
+                Activar Ahora
+              </button>
+            </div>
+          </div>
+        )}
+
         {isLoading && results.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-white/40 gap-4">
             <Loader2 size={48} className="animate-spin text-fuchsia-500/50" />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { X, FolderOpen, Download, Music, Film, Share2, Sparkles } from 'lucide-react'
+import { X, FolderOpen, Download, Music, Film, Share2, Sparkles, Crown } from 'lucide-react'
 import { VideoFormat, AppSettings } from '../types'
 
 interface AddDialogProps {
@@ -10,6 +10,7 @@ interface AddDialogProps {
   onAdd: (url: string, type: 'video' | 'audio' | 'torrent', formatId?: string, customDir?: string) => void
   onExpand: (url: string) => void
   onGetFormats: (url: string) => Promise<{ success: boolean; formats?: VideoFormat[]; error?: string }>
+  isPro: boolean
 }
 
 export default function AddDialog({ 
@@ -19,7 +20,8 @@ export default function AddDialog({
   settings, 
   onAdd, 
   onExpand,
-  onGetFormats 
+  onGetFormats,
+  isPro
 }: AddDialogProps) {
   const [url, setUrl] = useState(initialUrl)
   const [type, setType] = useState<'video' | 'audio' | 'torrent'>('video')
@@ -113,10 +115,17 @@ export default function AddDialog({
                 </div>
                 <button
                   type="button"
-                  onClick={() => onExpand?.(url)}
-                  className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-[9px] font-bold px-3 py-1 rounded transition-all"
+                  onClick={() => {
+                    if (isPro) {
+                      onExpand?.(url)
+                    } else {
+                      alert("La expansión de listas es una función Pro. Ve a Ajustes para activar tu licencia.")
+                    }
+                  }}
+                  className={`${isPro ? 'bg-fuchsia-600 hover:bg-fuchsia-500' : 'bg-white/10 text-white/40 cursor-not-allowed'} text-white text-[9px] font-bold px-3 py-1 rounded transition-all flex items-center gap-1.5`}
                 >
-                  EXPANDIR PRO
+                  {!isPro && <Crown size={10} />}
+                  {isPro ? 'EXPANDIR PRO' : 'FUNCIÓN PRO'}
                 </button>
               </div>
             )}

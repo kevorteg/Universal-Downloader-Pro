@@ -23,6 +23,7 @@ export default function App() {
     x: number; y: number; item: DownloadItem
   } | null>(null)
   const [detailsHeight, setDetailsHeight] = useState(220)
+  const [isPro, setIsPro] = useState(false)
   const resizing = useRef(false)
   const isInitialMount = useRef(true)
 
@@ -30,11 +31,17 @@ export default function App() {
   useEffect(() => {
     if (!window.electronAPI) return
     
+    // Load downloads history
     window.electronAPI.loadHistory().then(history => {
       if (history && Array.isArray(history)) {
         setDownloads(history)
       }
     }).catch(err => console.error('Error loading history:', err))
+
+    // Load license status
+    window.electronAPI.getLicenseStatus().then(status => {
+      setIsPro(status.isPro)
+    })
   }, [])
 
   // ── History Auto-Saving ──
@@ -316,12 +323,13 @@ export default function App() {
           onFilterChange={setFilter}
           onOpenSettings={() => setShowSettings(true)}
           onOpenBulk={handleOpenBulk}
+          isPro={isPro}
         />
 
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="flex-1 overflow-hidden" style={{ minHeight: 0 }}>
             {filter === 'search' ? (
-              <SearchTab onAddDownload={startDownload} />
+              <SearchTab onAddDownload={startDownload} isPro={isPro} />
             ) : (
               <DownloadList
                 downloads={filteredDownloads}
@@ -367,9 +375,11 @@ export default function App() {
 
       {showSettings && (
         <SettingsModal
+          isOpen={showSettings}
           settings={settings}
           onSave={handleSaveSettings}
           onClose={() => setShowSettings(false)}
+          onLicenseVerified={() => setIsPro(true)}
         />
       )}
 
@@ -381,7 +391,8 @@ export default function App() {
           settings={settings}
           onAdd={startDownload}
           onExpand={handleExpandPlaylist}
-          onGetFormats={handleGetFormats as any}
+          onGetFormats={handleGetFormats}
+          isPro={isPro}
         />
       )}
 

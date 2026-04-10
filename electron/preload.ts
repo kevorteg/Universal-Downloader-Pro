@@ -54,6 +54,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // App Management
   checkUpdates: () => ipcRenderer.invoke('app:checkUpdates'),
   validateLicense: (key: string) => ipcRenderer.invoke('app:validateLicense', key),
+  getLicenseStatus: () => ipcRenderer.invoke('app:getLicenseStatus'),
   
   // Robust Torrents
   scrapeTorrent: (url: string) => ipcRenderer.invoke('torrent:scrape', url),

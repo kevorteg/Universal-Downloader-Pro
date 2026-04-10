@@ -14,7 +14,8 @@ import { join } from 'path'
 import { spawn, ChildProcess } from 'child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs'
 import { readFile, writeFile, unlink } from 'fs/promises'
-import { homedir } from 'os'
+import { homedir, hostname, userInfo } from 'os'
+import { createHash } from 'crypto'
 import { registerTorrentHandlers } from './ipc-handlers'
 
 const DANGEROUS_EXTENSIONS = ['.exe', '.scr', '.msi', '.bat', '.cmd', '.vbs', '.js', '.jse', '.wsf', '.wsh']
@@ -75,6 +76,7 @@ let tray: Tray | null = null
 const activeProcesses = new Map<string, ChildProcess>()
 const activeTorrents = new Map<string, any>()
 const HISTORY_FILE = join(app.getPath('userData'), 'downloads.json')
+const LICENSE_FILE = join(app.getPath('userData'), 'license.json')
 
 // ─────────────────────────────────────────
 // History Manager
@@ -112,6 +114,94 @@ class HistoryManager {
       await writeFile(HISTORY_FILE, JSON.stringify(dataToSave, null, 2))
     } catch (error) {
       console.error('Error saving history:', error)
+    }
+  }
+}
+
+// ─────────────────────────────────────────
+// License Manager
+// ─────────────────────────────────────────
+const LICENSE_SALT = 'ud_pro_secure_signature_2024'; // In a real app, this should be more obscured
+
+class LicenseManager {
+  private static getMachineId() {
+    return createHash('sha256')
+      .update(hostname() + userInfo().username + process.arch)
+      .digest('hex');
+  }
+
+  private static generateSignature(key: string, instanceId: string) {
+    return createHash('sha256')
+      .update(key + instanceId + this.getMachineId() + LICENSE_SALT)
+      .digest('hex');
+  }
+
+  static async getStatus() {
+    try {
+      if (!existsSync(LICENSE_FILE)) return { isPro: false };
+      const data = await readFile(LICENSE_FILE, 'utf-8');
+      const info = JSON.parse(data);
+
+      // Check signature to prevent manual editing
+      const expectedSignature = this.generateSignature(info.key, info.instanceId);
+      if (info.signature !== expectedSignature) {
+        console.warn('[LICENSE] Signature mismatch - tampering detected.');
+        return { isPro: false };
+      }
+
+      return { isPro: true, ...info };
+    } catch (err) {
+      return { isPro: false };
+    }
+  }
+
+  static async save(info: { key: string, instanceId: string, user: string }) {
+    try {
+      const signature = this.generateSignature(info.key, info.instanceId);
+      const data = { ...info, signature, isPro: true, lastVerified: Date.now() };
+      await writeFile(LICENSE_FILE, JSON.stringify(data, null, 2));
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  static async verifyOnline() {
+    const status = await this.getStatus();
+    if (!status.isPro) return false;
+
+    try {
+      // Logic to verify with Lemon Squeezy if online
+      const response = await fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          license_key: status.key,
+          instance_id: status.instanceId
+        })
+      });
+
+      const data: any = await response.json();
+      if (data.valid) {
+        // Update lastVerified timestamp
+        await this.save({ key: status.key, instanceId: status.instanceId, user: status.user });
+        return true;
+      } else {
+        // Invalid key
+        rmSync(LICENSE_FILE);
+        return false;
+      }
+    } catch (err) {
+      // Offline - check grace period (e.g., 30 days)
+      const lastVerified = (status as any).lastVerified || 0;
+      const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+      if (Date.now() - lastVerified < thirtyDays) {
+        return true; // Still within grace period
+      }
+      return false;
     }
   }
 }
@@ -799,6 +889,47 @@ ipcMain.handle('pelis:search', async (_event, query: string) => {
   }
 })
 
+// License Handlers
+ipcMain.handle('app:validateLicense', async (_event, key: string) => {
+  try {
+    const response = await fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        license_key: key,
+        instance_name: hostname()
+      })
+    });
+
+    const data: any = await response.json();
+
+    if (data.activated) {
+      const info = {
+        key,
+        instanceId: data.instance.id,
+        user: data.meta?.customer_name || 'Usuario Pro'
+      };
+      await LicenseManager.save(info);
+      if (mainWindow) {
+        mainWindow.webContents.send('app:licenseUpdated', { isPro: true, user: info.user });
+      }
+      return { valid: true, user: info.user };
+    } else {
+      return { valid: false, error: data.error || 'La clave no pudo ser activada.' };
+    }
+  } catch (err) {
+    console.error('License validation error:', err);
+    return { valid: false, error: 'Error de red. Verifica tu conexión.' };
+  }
+});
+
+ipcMain.handle('app:getLicenseStatus', async () => {
+  return await LicenseManager.getStatus();
+});
+
 async function getPelisMagnet(url: string) {
   try {
     const parts = url.split('/').filter(p => !!p);
@@ -894,49 +1025,19 @@ ipcMain.handle('video:expandPlaylist', async (_event, url: string) => {
   });
 });
 
-ipcMain.handle('app:checkUpdates', async () => {
-  try {
-    const currentVersion = app.getVersion();
-    const response = await fetch('https://api.github.com/repos/kevorteg/Universal-Downloader-Pro/releases/latest');
-    if (!response.ok) return { updateAvailable: false };
-    
-    const data = await response.json();
-    const latestVersion = data.tag_name.replace('v', '');
-    
-    // Simple version comparison (e.g. "1.0.0" vs "1.0.1")
-    const isNewer = latestVersion !== currentVersion;
-
-    return {
-      updateAvailable: isNewer,
-      latestVersion,
-      url: data.html_url,
-      notes: data.body
-    };
-  } catch (err) {
-    console.error('[UPDATE CHECK] Error:', err);
-    return { updateAvailable: false };
-  }
-});
-
-ipcMain.handle('app:validateLicense', async (_event, key: string) => {
-  // --- MONETIZATION BRIDGE (PHASE 1) ---
-  // Simple check for now. For production, this would call Lemon Squeezy API.
-  // Using a "Magic Key" for testing and a fallback check.
-  const isMagicKey = key.toUpperCase() === 'PRO_USER_2024' || key.length > 15;
-  
-  if (isMagicKey) {
-    return { success: true, message: '¡Licencia Pro activada correctamente!' };
-  }
-  
-  return { success: false, message: 'La clave de licencia no es válida o ha expirado.' };
-});
-
 // ─────────────────────────────────────────
 // App lifecycle
 // ─────────────────────────────────────────
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   createWindow()
   createTray()
+  
+  // Verify license on startup
+  const status = await LicenseManager.getStatus();
+  if (status.isPro) {
+    console.log('[LICENSE] Validating Pro status...');
+    await LicenseManager.verifyOnline();
+  }
 })
 
 app.on('window-all-closed', () => {

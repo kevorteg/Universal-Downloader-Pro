@@ -31,11 +31,16 @@ export interface VideoInfo {
 
 export interface VideoFormat {
   formatId: string
-  ext: string
+  extension: string
   resolution: string
-  filesize: number
-  vcodec: string
-  acodec: string
+  height?: number
+  width?: number
+  note: string
+  filesize?: number
+  fps?: number
+  vcodec?: string
+  acodec?: string
+  isDynamic?: boolean
 }
 
 export interface StartDownloadOptions {
@@ -91,6 +96,7 @@ declare global {
       // App
       checkUpdates: () => Promise<any>
       validateLicense: (key: string) => Promise<{ valid: boolean; user?: string; error?: string }>
+      getLicenseStatus: () => Promise<{ isPro: boolean; key?: string; user?: string }>
       
       // Listeners
       onDownloadProgress: (callback: (data: DownloadProgressData) => void) => () => void

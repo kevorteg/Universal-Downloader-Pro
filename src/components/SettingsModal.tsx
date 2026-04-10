@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { AppSettings } from '../types'
 import { Settings, Folder, Save, X, Globe, UserCheck, HardDrive, Share2, Crown, Sparkles } from 'lucide-react'
 
@@ -6,10 +6,24 @@ interface SettingsModalProps {
   settings: AppSettings
   onSave: (settings: AppSettings) => void
   onClose: () => void
+  isOpen: boolean
+  onLicenseVerified?: (user: string) => void
 }
 
-export default function SettingsModal({ settings, onSave, onClose }: SettingsModalProps) {
+export default function SettingsModal({ settings, onSave, onClose, isOpen, onLicenseVerified }: SettingsModalProps) {
   const [form, setForm] = useState<AppSettings>({ ...settings })
+
+  useEffect(() => {
+    const loadLicense = async () => {
+      if (window.electronAPI && isOpen) {
+        const status = await window.electronAPI.getLicenseStatus();
+        if (status.isPro) {
+          setForm(prev => ({ ...prev, licenseKey: status.key || '' }));
+        }
+      }
+    };
+    loadLicense();
+  }, [isOpen]);
 
   const handlePickFolder = async () => {
     if (window.electronAPI) {
@@ -175,6 +189,7 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
                          const res = await window.electronAPI.validateLicense(form.licenseKey)
                          if (res.valid) {
                            alert(`¡Licencia válida! Bienvenido, ${res.user || 'Usuario'}`)
+                           if (onLicenseVerified) onLicenseVerified(res.user || 'Usuario')
                          } else {
                            alert(`Error: ${res.error || 'Clave de licencia inválida'}`)
                          }
