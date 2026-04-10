@@ -405,10 +405,7 @@ async function performSearch(query: string) {
     // Avoid shell:true to prevent argument parsing issues with spaces
     // yt-dlp arguments should be separate
     const args = ['-J', '--no-playlist', '--flat-playlist', `ytsearch12:${query}`]
-    
-    const proc = spawn(YT_DLP_EXE, args, { 
-      windowsVerbatimArguments: true 
-    })
+    const proc = spawn(YT_DLP_EXE, args)
     
     let output = ''
     let errOutput = ''
