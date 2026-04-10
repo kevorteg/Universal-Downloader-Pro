@@ -126,11 +126,17 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 const isPackaged = app.isPackaged
 const binPath = isPackaged 
   ? join(process.resourcesPath, 'bin') 
-  : join(__dirname, '../bin');
+  : join(process.cwd(), 'bin');
 
 const YT_DLP_EXE = existsSync(join(binPath, 'yt-dlp.exe')) ? join(binPath, 'yt-dlp.exe') : 'yt-dlp';
 const FFMPEG_LOCATION = existsSync(join(binPath, 'ffmpeg.exe')) ? binPath : undefined;
-const VERSES_FILE = join(__dirname, 'verses.json');
+
+// Look for verses.json in multiple possible locations
+let foundVersesPath = join(__dirname, 'verses.json');
+if (!existsSync(foundVersesPath)) {
+  foundVersesPath = join(process.cwd(), 'electron', 'verses.json');
+}
+const VERSES_FILE = foundVersesPath;
 
 // --- SPIRITUAL SYSTEM ---
 function showDailyVerse() {
@@ -394,21 +400,27 @@ ipcMain.handle('video:getFormats', async (event, url: string) => {
   })
 })
 async function performSearch(query: string) {
+  console.log(`[SEARCH] Query: ${query}`);
   return new Promise<any[]>((resolve) => {
+    // Avoid shell:true to prevent argument parsing issues with spaces
+    // yt-dlp arguments should be separate
     const args = ['-J', '--no-playlist', '--flat-playlist', `ytsearch12:${query}`]
+    
     const proc = spawn(YT_DLP_EXE, args, { 
-      shell: true,
-      windowsVerbatimArguments: true
+      windowsVerbatimArguments: true 
     })
     
     let output = ''
+    let errOutput = ''
     proc.stdout.on('data', (data) => { output += data.toString() })
+    proc.stderr.on('data', (data) => { errOutput += data.toString() })
 
     proc.on('close', (code) => {
       if (code === 0) {
         try {
           const info = JSON.parse(output)
           const entries = info.entries || []
+          console.log(`[SEARCH] Results found: ${entries.length}`);
           resolve(entries.map((e: any) => ({
             title: e.title,
             url: e.url || e.webpage_url,
@@ -416,10 +428,19 @@ async function performSearch(query: string) {
             year: e.upload_date ? e.upload_date.substring(0, 4) : '2024',
             duration: e.duration
           })))
-        } catch (e) { resolve([]) }
-      } else { resolve([]) }
+        } catch (e) { 
+          console.error('[SEARCH] Parse error:', e);
+          resolve([]) 
+        }
+      } else { 
+        console.error(`[SEARCH] Proc exit code ${code}. Error: ${errOutput}`);
+        resolve([]) 
+      }
     })
-    proc.on('error', () => { resolve([]) })
+    proc.on('error', (err) => { 
+      console.error('[SEARCH] Critical spawn error:', err);
+      resolve([]) 
+    })
   })
 }
 
