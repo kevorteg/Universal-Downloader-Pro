@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { Search, Download, Loader2, Film, Calendar } from 'lucide-react'
-import { MovieSearchResult } from '../types'
+import { Search, Download, Loader2, Film, Calendar, Youtube, User } from 'lucide-react'
+import { SearchResult } from '../types'
 
 interface SearchTabProps {
   onAddDownload: (url: string, type: 'video' | 'audio' | 'torrent', title?: string) => void
@@ -8,7 +8,8 @@ interface SearchTabProps {
 
 export default function SearchTab({ onAddDownload }: SearchTabProps) {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<MovieSearchResult[]>([])
+  const [activeTab, setActiveTab] = useState<'video' | 'movie'>('video')
+  const [results, setResults] = useState<SearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -19,7 +20,12 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await window.electronAPI.searchMovies(query)
+      let data: SearchResult[] = []
+      if (activeTab === 'video') {
+        data = await window.electronAPI.searchVideos(query)
+      } else {
+        data = await window.electronAPI.searchMovies(query)
+      }
       setResults(data)
       if (data.length === 0) setError('No se encontraron resultados.')
     } catch (err) {
@@ -29,14 +35,19 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
     }
   }
 
-  const handleDownload = async (item: MovieSearchResult) => {
+  const handleDownload = async (item: SearchResult) => {
     try {
-      // Show some loading or just let the app handle it
-      const magnet = await window.electronAPI.getMovieMagnets(item.url)
-      if (magnet) {
-        onAddDownload(magnet, 'torrent', item.title)
+      if (item.type === 'video') {
+        // Direct video download
+        onAddDownload(item.url, 'video', item.title)
       } else {
-        alert('No se encontró enlace de descarga para este título.')
+        // Scrape magnet for movies
+        const magnet = await window.electronAPI.getMovieMagnets(item.url)
+        if (magnet) {
+          onAddDownload(magnet, 'torrent', item.title)
+        } else {
+          alert('No se encontró enlace de descarga para este título.')
+        }
       }
     } catch (err) {
       console.error('Error getting magnet:', err)
@@ -47,12 +58,33 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
     <div className="flex flex-col h-full bg-black/10 overflow-hidden">
       {/* Search Header */}
       <div className="p-6 bg-gradient-to-b from-fuchsia-950/20 to-transparent flex flex-col gap-4">
-        <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-          <Film className="text-fuchsia-500" />
-          Buscador de Películas
-        </h2>
+        <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                {activeTab === 'video' ? <Youtube className="text-red-500" /> : <Film className="text-fuchsia-500" />}
+                {activeTab === 'video' ? 'Buscador de Videos' : 'Buscador de Películas'}
+            </h2>
+
+            {/* Tab Selector */}
+            <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+                <button 
+                  onClick={() => { setActiveTab('video'); setResults([]); setError(null); }}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'video' ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
+                >
+                    Videos / YT
+                </button>
+                <button 
+                  onClick={() => { setActiveTab('movie'); setResults([]); setError(null); }}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'movie' ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
+                >
+                    Películas / Torrents
+                </button>
+            </div>
+        </div>
+
         <p className="text-sm text-white/50 -mt-2">
-          Busca contenido en PelisPanda y otros servidores premium.
+          {activeTab === 'video' 
+            ? 'Encuentra videos en YouTube y otras plataformas de streaming.' 
+            : 'Busca películas en servidores premium y redes P2P.'}
         </p>
 
         <form onSubmit={handleSearch} className="relative mt-2">
@@ -61,7 +93,7 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Escribe el nombre de la película o serie..."
+            placeholder={activeTab === 'video' ? "Busca videos, canales, música..." : "Escribe el nombre de la película..."}
             className="w-full bg-white/5 border border-white/10 rounded-full py-3.5 pl-12 pr-32 text-white text-sm focus:outline-none focus:border-fuchsia-500/50 focus:ring-1 focus:ring-fuchsia-500/30 transition-all placeholder:text-white/20"
           />
           <button
@@ -96,13 +128,14 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        <div className={`grid gap-6 ${activeTab === 'video' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'}`}>
           {results.map((item, idx) => (
             <div 
               key={idx}
               className="group bg-white/5 border border-white/5 rounded-xl overflow-hidden hover:border-fuchsia-500/30 transition-all hover:bg-white/10 flex flex-col"
             >
-              <div className="aspect-[2/3] relative overflow-hidden bg-black/40">
+              {/* Thumbnail Container */}
+              <div className={`${activeTab === 'video' ? 'aspect-video' : 'aspect-[2/3]'} relative overflow-hidden bg-black/40`}>
                 {item.thumbnail ? (
                   <img 
                     src={item.thumbnail} 
@@ -114,27 +147,45 @@ export default function SearchTab({ onAddDownload }: SearchTabProps) {
                     <Film size={48} />
                   </div>
                 )}
+                
+                {/* Duration Overlay for Videos */}
+                {activeTab === 'video' && item.duration && (
+                    <div className="absolute bottom-2 right-2 bg-black/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-white border border-white/5">
+                        {item.duration}
+                    </div>
+                )}
+
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
                   <button 
                     onClick={() => handleDownload(item)}
                     className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
                   >
                     <Download size={14} />
-                    Descargar
+                    {activeTab === 'video' ? 'Descargar Video' : 'Descargar Película'}
                   </button>
                 </div>
               </div>
+
+              {/* Info Container */}
               <div className="p-3 flex-1 flex flex-col gap-1">
                 <h3 className="text-sm font-semibold text-white/90 line-clamp-2 leading-tight min-h-[2.5rem]">
                   {item.title}
                 </h3>
                 <div className="flex items-center justify-between mt-auto">
-                    <span className="text-[10px] text-white/40 flex items-center gap-1">
-                        <Calendar size={10} />
-                        {item.year || '2024'}
-                    </span>
-                    <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-fuchsia-400">
-                        HD 1080p
+                    {activeTab === 'video' ? (
+                        <span className="text-[10px] text-white/40 flex items-center gap-1">
+                            <User size={10} className="text-fuchsia-500/60" />
+                            {item.uploader || 'YouTube'}
+                        </span>
+                    ) : (
+                        <span className="text-[10px] text-white/40 flex items-center gap-1">
+                            <Calendar size={10} />
+                            {item.year || '2024'}
+                        </span>
+                    )}
+                    
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${activeTab === 'video' ? 'bg-red-500/10 text-red-400' : 'bg-fuchsia-500/10 text-fuchsia-400'}`}>
+                        {activeTab === 'video' ? 'Full HD+' : 'HD 1080p'}
                     </span>
                 </div>
               </div>

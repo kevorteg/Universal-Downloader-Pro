@@ -49,11 +49,14 @@ export type SidebarFilter =
   | 'torrent'
   | 'search'
 
-export interface MovieSearchResult {
+export interface SearchResult {
   title: string
-  year?: string
+  url: string
   thumbnail?: string
-  url: string // The page URL to scrape magnet from
+  year?: string
+  uploader?: string    // For YouTube/General
+  duration?: string    // For YouTube/General
+  type: 'video' | 'movie'
   quality?: string
 }
 

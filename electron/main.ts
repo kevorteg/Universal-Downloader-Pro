@@ -422,8 +422,9 @@ async function performSearch(query: string) {
             title: e.title,
             url: e.url || e.webpage_url,
             thumbnail: e.thumbnail || (e.thumbnails && e.thumbnails[0]?.url),
-            year: e.upload_date ? e.upload_date.substring(0, 4) : '2024',
-            duration: e.duration
+            uploader: e.uploader || e.channel,
+            duration: e.duration_string || (e.duration ? `${Math.floor(e.duration / 60)}:${String(e.duration % 60).padStart(2, '0')}` : ''),
+            type: 'video'
           })))
         } catch (e) { 
           console.error('[SEARCH] Parse error:', e);
@@ -441,12 +442,14 @@ async function performSearch(query: string) {
   })
 }
 
-ipcMain.handle('video:searchMovies', async (_event, query: string) => {
+ipcMain.handle('video:searchVideos', async (_event, query: string) => {
   return await performSearch(query);
 })
 
-ipcMain.handle('video:search', async (_event, query: string) => {
-  return await performSearch(query);
+ipcMain.handle('video:searchMovies', async (_event, query: string) => {
+  // Use PelisPanda scraper for movies
+  const results = await ipcMain.handle('pelis:search', _event, query) as any[];
+  return results.map(r => ({ ...r, type: r.url.includes('pelispanda') ? 'movie' : 'video' }));
 })
 
 ipcMain.handle('video:getMovieMagnets', async (_event, url: string) => {
