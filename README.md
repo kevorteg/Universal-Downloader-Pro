@@ -7,18 +7,22 @@
 
 Universal Downloader Pro is a professional-grade desktop application for high-performance media acquisition. Built with Electron, React, and Vite, it leverages the industry-standard yt-dlp engine to provide a seamless, high-speed downloading experience for video and audio content from over 1000 supported platforms.
 
+🌐 **Product Website**: [universal-downloader-pro.vercel.app](https://universal-downloader-pro.vercel.app)
+
 ---
 
-## Key Features
+## 💎 Pro Features
 
-| Category               | Description                                                                 |
-|-----------------------|-----------------------------------------------------------------------------|
-| **Broad Platform Support** | Native integration with yt-dlp for YouTube, VK, X (Twitter), and thousands more. |
-| **HD Stream Merging** | Automated processing of high-definition video and audio streams via embedded FFmpeg. |
-| **Zero-Dependency**   | Standalone distribution: FFmpeg and yt-dlp binaries are bundled within the application. |
-| **Secure Authentication** | Support for browser cookie synchronization to access private or restricted content. |
-| **Pro Dashboard**     | Minimalist, high-contrast UI with real-time progress, speed, and ETA monitoring. |
-| **Windows Optimized** | Specifically tuned for NTFS path management and DPAPI (Data Protection API) handling. |
+Unlock the full potential of your media library with our **Pro Suite**:
+
+| Feature | Community | Pro |
+|---------|-----------|-----|
+| **Individual Downloads** | ✅ Ilimitado | ✅ Ilimitado |
+| **HD & 4K Streams** | ✅ 1080p | ✅ 4K / 8K / HDR |
+| **Playlist Expansion** | ❌ Manual | ✅ Automática (Un-clic) |
+| **Bulk Import** | ❌ Hasta 10 links | ✅ Ilimitado (Arreglos Masivos) |
+| **Buscador Integrado** | ✅ Básico | ✅ Avanzado + MP3 High Fidelity |
+| **Actualizaciones Auto** | ❌ Manual | ✅ Notificaciones en tiempo real |
 
 ---
 
@@ -26,45 +30,34 @@ Universal Downloader Pro is a professional-grade desktop application for high-pe
 
 Universal Downloader Pro operates on a decoupled architecture to ensure stability and performance:
 
-1.  **Frontend (React/Vite)**: A reactive UI that manages the download state, user configurations, and real-time logging. It communicates with the backend via a secure IPC (Inter-Process Communication) bridge.
-2.  **Orchestrator (Electron Main)**: The central logic hub that manages child processes (yt-dlp), file system operations, and native Windows API calls (like DPAPI).
+1.  **Frontend (React/Vite)**: A reactive UI that manages the download state, user configurations, and real-time logging.
+2.  **Orchestrator (Electron Main)**: The central logic hub that manages child processes (yt-dlp), file system operations, and Pro license validation.
 3.  **Worker Engines (yt-dlp & FFmpeg)**: Local CLI binaries that handle the heavy lifting of stream extraction and media muxing.
 
 ---
 
 ## Installation and Deployment
 
-### Prerequisites
+### Getting Started
 
-*   **Node.js** (v18.0+)
-*   **Git**
+1.  **Download**: Visit the [Official Landing Page](https://universal-downloader-pro.vercel.app) or check the [Latest Releases](https://github.com/kevorteg/Universal-Downloader-Pro/releases).
+2.  **Install**: Run the generated `.exe` installer.
+3.  **Go Pro**: Support the project and enter your License Key in the Settings panel to unlock premium features.
 
 ### Local Development
 
 ```bash
-# 1. Clone the repository
+# 1. Clone & Install
 git clone https://github.com/kevorteg/Universal-Downloader-Pro
-cd Universal-Downloader-Pro
-
-# 2. Install dependencies
 npm install
 
-# 3. Secure Binaries (Automated Script)
-# This downloads the required yt-dlp and FFmpeg executables into the /bin folder
+# 2. Secure Binaries
 ./download-binaries.ps1
 
-# 4. Start Development Server
+# 3. Development
 npm run dev
-```
 
-> [!TIP]
-> Use the ./download-binaries.ps1 script to ensure you always have the latest validated versions of the worker engines.
-
-### Production Build (Release)
-
-To generate a standalone Windows installer (.exe):
-
-```bash
+# 4. Build Production
 npm run dist
 ```
 
@@ -76,36 +69,28 @@ npm run dist
 > [!IMPORTANT]
 > Windows security protocols lock browser cookie databases while the browser is active.
 >
-> **Resolution**: Close all browser instances (Chrome, Brave, etc.) before initiating a download that requires authenticated cookies.
+> **Resolution**: Close all browser instances (Chrome, Edge, etc.) before initiating a download that requires authenticated cookies.
 
-### HTTP 403 Forbidden Errors
-> [!WARNING]
-> If a site blocks access, it usually means your session cookies are required or the User-Agent is being restricted.
->
-> 1.  Navigate to the Settings section.
-2.  Select the corresponding browser for Cookie Sync.
-3.  Ensure the browser is fully closed to allow access to the database.
+### HTTP 403 Forbidden
+If a site blocks access, ensure:
+1.  **Cookie Sync** is enabled in Settings.
+2.  **Pro Mode** is active for sites requiring high-bandwidth or 4K streams.
+3.  The browser is fully closed.
 
 ---
 
-## Contributing
+## Support & Monetization
 
-We welcome contributions! Please refer to our CONTRIBUTING.md for guidelines on how to submit pull requests and maintain high code quality.
+This project is maintained by the community and supported by users like you. 
 
----
-
-## Support the Project
-
-If you find Universal Downloader Pro useful, consider supporting its development. You can find the Sponsor button at the top of the repository to contribute via GitHub Sponsors, Patreon, or Ko-fi.
+*   **Become a Sponsor**: Help us keep the servers running and the code updated.
+*   **Pro License ($5)**: Get a lifetime license to all premium features by sponsoring the developer.
 
 ---
 
 ## License
 
-Distributed under the MIT License. The MIT license is a permissive license that is short and to the point. It lets people do anything they want with your code as long as they provide attribution back to you and don’t hold you liable.
-
-> [!NOTE]
-> To ensure license compliance, all forks and redistributions must maintain the original copyright notice found in the LICENSE file.
+Distributed under the MIT License. To ensure license compliance, all forks and redistributions must maintain the original copyright notice found in the LICENSE file.
 
 ---
 

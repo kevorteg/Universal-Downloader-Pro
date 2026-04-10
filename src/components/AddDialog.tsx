@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { X, FolderOpen, Download, Music, Film, Share2 } from 'lucide-react'
+import { X, FolderOpen, Download, Music, Film, Share2, Sparkles } from 'lucide-react'
 import { VideoFormat, AppSettings } from '../types'
 
 interface AddDialogProps {
@@ -8,10 +8,19 @@ interface AddDialogProps {
   initialUrl?: string
   settings: AppSettings
   onAdd: (url: string, type: 'video' | 'audio' | 'torrent', formatId?: string, customDir?: string) => void
+  onExpand: (url: string) => void
   onGetFormats: (url: string) => Promise<{ success: boolean; formats?: VideoFormat[]; error?: string }>
 }
 
-export default function AddDialog({ isOpen, onClose, initialUrl = '', settings, onAdd, onGetFormats }: AddDialogProps) {
+export default function AddDialog({ 
+  isOpen, 
+  onClose, 
+  initialUrl = '', 
+  settings, 
+  onAdd, 
+  onExpand,
+  onGetFormats 
+}: AddDialogProps) {
   const [url, setUrl] = useState(initialUrl)
   const [type, setType] = useState<'video' | 'audio' | 'torrent'>('video')
   const [formatId, setFormatId] = useState<string>('best')
@@ -96,6 +105,21 @@ export default function AddDialog({ isOpen, onClose, initialUrl = '', settings, 
               className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-fuchsia-500/50 focus:ring-1 focus:ring-fuchsia-500/50 transition-all font-mono placeholder:text-white/20 placeholder:font-sans"
               placeholder="https://..."
             />
+            {url && url.includes('list=') && (
+              <div className="mt-2 p-3 bg-fuchsia-600/10 border border-fuchsia-500/20 rounded-lg flex items-center justify-between animate-in slide-in-from-top-1">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={14} className="text-fuchsia-400" />
+                  <span className="text-[10px] font-bold text-white/70">LISTA DE REPRODUCCIÓN</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onExpand?.(url)}
+                  className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-[9px] font-bold px-3 py-1 rounded transition-all"
+                >
+                  EXPANDIR PRO
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Type Selection */}

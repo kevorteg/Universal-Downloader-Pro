@@ -19,9 +19,11 @@ interface SidebarProps {
   downloads: DownloadItem[]
   filter: SidebarFilter
   onFilterChange: (f: SidebarFilter) => void
+  onOpenSettings: () => void
+  onOpenBulk: () => void
 }
 
-export default function Sidebar({ downloads, filter, onFilterChange }: SidebarProps) {
+export default function Sidebar({ downloads, filter, onFilterChange, onOpenSettings, onOpenBulk }: SidebarProps) {
   const counts = {
     all: downloads.length,
     downloading: downloads.filter(d => d.status === 'downloading' || d.status === 'queued').length,
@@ -127,23 +129,35 @@ export default function Sidebar({ downloads, filter, onFilterChange }: SidebarPr
 
       {/* Universal Pro Section */}
       <div
+        onClick={onOpenSettings}
+        className="group"
         style={{
           margin: '8px 4px',
           padding: '12px 10px',
           borderRadius: 12,
           background: 'linear-gradient(135deg, rgba(192, 38, 211, 0.15) 0%, rgba(147, 51, 234, 0.05) 100%)',
           border: '1px solid rgba(192, 38, 211, 0.2)',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          transition: 'all 0.2s'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-          <Crown size={14} style={{ color: '#c026d3' }} />
+          <Crown size={14} className="text-fuchsia-400 group-hover:scale-110 transition-transform" />
           <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', letterSpacing: 0.5 }}>Universal Pro</span>
         </div>
         <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.3 }}>
-          Velocidad turbo, 4K y soporte prioritario.
+          Listas de reproducción, descargas masivas y 4K.
         </div>
       </div>
+
+      {/* Bulk Add Action */}
+      <button
+        onClick={onOpenBulk}
+        className="mx-1 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all text-[11px] font-bold"
+      >
+        <Layers size={13} className="text-fuchsia-400" />
+        Importación Masiva
+      </button>
 
       {/* Footer info */}
       <div

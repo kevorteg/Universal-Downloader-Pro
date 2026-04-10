@@ -858,6 +858,80 @@ ipcMain.handle('pelis:getMagnet', async (_event, url: string) => {
 })
 
 // ─────────────────────────────────────────
+// PRO FEATURES: Playlists, Updates, License
+// ─────────────────────────────────────────
+
+ipcMain.handle('video:expandPlaylist', async (_event, url: string) => {
+  return new Promise((resolve) => {
+    // --flat-playlist: extract only metadata, don't download
+    // -J: output JSON
+    const args = ['--flat-playlist', '-J', '--no-warnings', url];
+    const proc = spawn(YT_DLP_EXE, args);
+    let output = '';
+
+    proc.stdout.on('data', (chunk) => { output += chunk.toString(); });
+    proc.on('close', (code) => {
+      if (code === 0) {
+        try {
+          const data = JSON.parse(output);
+          const entries = data.entries || [];
+          resolve({
+            success: true,
+            entries: entries.map((e: any) => ({
+              title: e.title || 'Video sin título',
+              url: e.url || e.webpage_url || e.id,
+              thumbnail: e.thumbnail || (e.thumbnails && e.thumbnails[0]?.url),
+              duration: e.duration_string || (e.duration ? `${Math.floor(e.duration/60)}:${String(e.duration%60).padStart(2,'0')}` : '')
+            }))
+          });
+        } catch (err) {
+          resolve({ success: false, error: 'Error al procesar la lista de reproducción.' });
+        }
+      } else {
+        resolve({ success: false, error: `yt-dlp falló con código ${code}` });
+      }
+    });
+  });
+});
+
+ipcMain.handle('app:checkUpdates', async () => {
+  try {
+    const currentVersion = app.getVersion();
+    const response = await fetch('https://api.github.com/repos/kevorteg/Universal-Downloader-Pro/releases/latest');
+    if (!response.ok) return { updateAvailable: false };
+    
+    const data = await response.json();
+    const latestVersion = data.tag_name.replace('v', '');
+    
+    // Simple version comparison (e.g. "1.0.0" vs "1.0.1")
+    const isNewer = latestVersion !== currentVersion;
+
+    return {
+      updateAvailable: isNewer,
+      latestVersion,
+      url: data.html_url,
+      notes: data.body
+    };
+  } catch (err) {
+    console.error('[UPDATE CHECK] Error:', err);
+    return { updateAvailable: false };
+  }
+});
+
+ipcMain.handle('app:validateLicense', async (_event, key: string) => {
+  // --- MONETIZATION BRIDGE (PHASE 1) ---
+  // Simple check for now. For production, this would call Lemon Squeezy API.
+  // Using a "Magic Key" for testing and a fallback check.
+  const isMagicKey = key.toUpperCase() === 'PRO_USER_2024' || key.length > 15;
+  
+  if (isMagicKey) {
+    return { success: true, message: '¡Licencia Pro activada correctamente!' };
+  }
+  
+  return { success: false, message: 'La clave de licencia no es válida o ha expirado.' };
+});
+
+// ─────────────────────────────────────────
 // App lifecycle
 // ─────────────────────────────────────────
 app.whenReady().then(() => {

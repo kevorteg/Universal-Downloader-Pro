@@ -4,6 +4,11 @@ import { homedir } from 'os'
 const STORAGE_KEY = 'ud_settings'
 const DOWNLOADS_KEY = 'ud_downloads'
 
+export function isProUser(settings: AppSettings): boolean {
+  // Simple validation for Phase 1
+  return settings.licenseKey.toUpperCase() === 'PRO_USER_2024' || settings.licenseKey.length > 15
+}
+
 export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)

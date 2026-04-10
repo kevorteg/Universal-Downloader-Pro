@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { AppSettings } from '../types'
-import { Settings, Folder, Save, X, Globe, UserCheck, HardDrive, Share2, Crown } from 'lucide-react'
+import { Settings, Folder, Save, X, Globe, UserCheck, HardDrive, Share2, Crown, Sparkles } from 'lucide-react'
 
 interface SettingsModalProps {
   settings: AppSettings
@@ -148,19 +148,61 @@ export default function SettingsModal({ settings, onSave, onClose }: SettingsMod
           <div className="space-y-4">
             <label className="text-[11px] uppercase tracking-wider font-bold text-fuchsia-400 flex items-center gap-2">
               <Crown size={12} />
-              Sección Pro (Monetización)
+              Sección Pro
             </label>
             
-            <div className="space-y-2">
-              <div className="text-[12px] text-white/80">Clave de Licencia</div>
-              <input
-                type="password"
-                className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-[12px] text-white focus:border-fuchsia-500 outline-none"
-                placeholder="XXXX-XXXX-XXXX-XXXX"
-                value={form.licenseKey}
-                onChange={e => setForm(prev => ({ ...prev, licenseKey: e.target.value }))}
-              />
-              <p className="text-[9px] text-muted">Ingresa tu clave para desbloquear todas las funciones premium.</p>
+            <div className="space-y-3 p-4 bg-fuchsia-600/5 rounded-xl border border-fuchsia-500/10 transition-all">
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] font-bold text-white">Estado de Licencia</span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${form.licenseKey ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/10 text-white/40'}`}>
+                  {form.licenseKey ? 'ACTIVADA' : 'VERSIÓN GRATUITA'}
+                </span>
+              </div>
+              
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white focus:border-fuchsia-500 outline-none font-mono"
+                  placeholder="XXXX-XXXX-XXXX-XXXX"
+                  value={form.licenseKey}
+                  onChange={e => setForm(prev => ({ ...prev, licenseKey: e.target.value }))}
+                />
+                <button 
+                  className="btn btn-secondary px-4 text-[11px] font-bold"
+                  onClick={async () => {
+                    try {
+                      if (window.electronAPI) {
+                         const res = await window.electronAPI.validateLicense(form.licenseKey)
+                         if (res.valid) {
+                           alert(`¡Licencia válida! Bienvenido, ${res.user || 'Usuario'}`)
+                         } else {
+                           alert(`Error: ${res.error || 'Clave de licencia inválida'}`)
+                         }
+                      }
+                    } catch (err) {
+                      console.error("Error validating license:", err)
+                      alert("Hubo un problema al validar la licencia. Verifica tu conexión.")
+                    }
+                  }}
+                >
+                  Verificar
+                </button>
+              </div>
+
+              {!form.licenseKey && (
+                <div className="pt-2">
+                  <button 
+                    onClick={() => window.open('https://github.com/sponsors/kevorteg', '_blank')}
+                    className="w-full bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white text-[11px] font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-fuchsia-900/20"
+                  >
+                    <Sparkles size={12} />
+                    ACTUALIZAR A PRO POR $5
+                  </button>
+                  <p className="text-[9px] text-center text-muted mt-2">
+                    Desbloquea listas de reproducción ilimitadas e importación masiva.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between bg-fuchsia-950/20 p-3 rounded border border-fuchsia-500/10">

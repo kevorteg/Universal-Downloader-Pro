@@ -49,6 +49,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchMusic: (query: string, limit?: number) => ipcRenderer.invoke('video:searchMusic', query, limit),
   searchMovies: (query: string) => ipcRenderer.invoke('video:searchMovies', query),
   getMovieMagnets: (url: string) => ipcRenderer.invoke('video:getMovieMagnets', url),
+  expandPlaylist: (url: string) => ipcRenderer.invoke('video:expandPlaylist', url),
+  
+  // App Management
+  checkUpdates: () => ipcRenderer.invoke('app:checkUpdates'),
+  validateLicense: (key: string) => ipcRenderer.invoke('app:validateLicense', key),
   
   // Robust Torrents
   scrapeTorrent: (url: string) => ipcRenderer.invoke('torrent:scrape', url),
