@@ -387,9 +387,9 @@ export default function App() {
             <div className="text-fuchsia-400 text-xs font-bold mb-4 tracking-[0.2em] uppercase">PENSAMIENTO DEL DÍA</div>
             <p className="text-2xl text-white/70 italic font-serif leading-relaxed max-w-2xl mx-auto">
             ".   “Cada uno según el don que ha recibido, minístrelo a los otros, como buenos administradores de la multiforme gracia de Dios.”
-‭‭1 PEDRO‬ ‭4‬:‭10‬
+‭‭
             </p>
-            <div className="mt-4 text-white/30 text-sm font-bold tracking-widest">— FILIPENSES 4:13</div>
+            <div className="mt-4 text-white/30 text-sm font-bold tracking-widest">— 1 pedro 4:10</div>
           </motion.div>
         </div>
       </footer>
