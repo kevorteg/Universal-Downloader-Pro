@@ -386,7 +386,8 @@ export default function App() {
             <div className="absolute -top-20 -right-20 w-40 h-40 bg-fuchsia-500/10 blur-3xl rounded-full transition-transform duration-1000 group-hover:scale-150" />
             <div className="text-fuchsia-400 text-xs font-bold mb-4 tracking-[0.2em] uppercase">PENSAMIENTO DEL DÍA</div>
             <p className="text-2xl text-white/70 italic font-serif leading-relaxed max-w-2xl mx-auto">
-              "Todo lo puedo en Cristo que me fortalece."
+            ".   “Cada uno según el don que ha recibido, minístrelo a los otros, como buenos administradores de la multiforme gracia de Dios.”
+‭‭1 PEDRO‬ ‭4‬:‭10‬
             </p>
             <div className="mt-4 text-white/30 text-sm font-bold tracking-widest">— FILIPENSES 4:13</div>
           </motion.div>
